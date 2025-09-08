@@ -27,6 +27,7 @@ export default function HomeScreen() {
 
   const [profileModalVisible, setProfileModalVisible] = useState(false);
   const [selectedProfile, setSelectedProfile] = useState(null);
+  const [menuVisible, setMenuVisible] = useState(false);
 
   const { token, user } = useAuth();
   const { chats, fetchChats, openChat } = useChats();
@@ -95,6 +96,50 @@ export default function HomeScreen() {
     }
   };
 
+  const getPreviewText = (message) => {
+    if (!message) return null;
+
+    switch (message.type) {
+      case "text":
+        return message.content;
+      case "location":
+        return "📍 Location shared";
+      case "contact":
+        return `👤 ${message.contact?.name || "Contact"}`;
+      case "poll":
+        return `🗳 ${message.poll?.topic || "Poll created"}`;
+      default:
+        return "Unsupported message";
+    }
+  };
+
+  const formatChatTime = (timestamp) => {
+    const msgDate = new Date(timestamp);
+    const now = new Date();
+
+    const isToday =
+      msgDate.getDate() === now.getDate() &&
+      msgDate.getMonth() === now.getMonth() &&
+      msgDate.getFullYear() === now.getFullYear();
+
+    const yesterday = new Date();
+    yesterday.setDate(now.getDate() - 1);
+    const isYesterday =
+      msgDate.getDate() === yesterday.getDate() &&
+      msgDate.getMonth() === yesterday.getMonth() &&
+      msgDate.getFullYear() === yesterday.getFullYear();
+
+    if (isToday) {
+      return msgDate.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    } else if (isYesterday) {
+      return "Yesterday";
+    } else {
+      return msgDate.toLocaleDateString([], { day: "2-digit", month: "short", year: "numeric" });
+    }
+  };
+
+
+
   return (
     <SafeAreaView style={styles.safeArea} edges={["top"]}>
       {/* Header */}
@@ -103,7 +148,9 @@ export default function HomeScreen() {
         <View style={styles.headerIcons}>
           <Ionicons name="camera-outline" size={22} color="#1C1C1E" style={styles.icon} />
           <Ionicons name="search-outline" size={22} color="#1C1C1E" style={styles.icon} />
-          <Ionicons name="ellipsis-vertical" size={22} color="#1C1C1E" />
+          <TouchableOpacity onPress={() => setMenuVisible(true)}>
+            <Ionicons name="ellipsis-vertical" size={22} color="#1C1C1E" />
+          </TouchableOpacity>
         </View>
       </View>
 
@@ -159,7 +206,7 @@ export default function HomeScreen() {
                       <Text style={styles.chatName}>
                         {item.isGroupChat ? item.chatName : otherUser?.name}
                       </Text>
-                      <Text style={styles.chatTime}>12:30 PM</Text>
+                      <Text style={styles.chatTime}>{formatChatTime(item.createdAt)}</Text>
                     </View>
                     <Text
                       numberOfLines={1}
@@ -168,7 +215,7 @@ export default function HomeScreen() {
                         item.unread && { color: "#0A84FF", fontWeight: "600" },
                       ]}
                     >
-                      {item.latestMessage?.content || "No messages yet"}
+                      {getPreviewText(item.latestMessage) || "No messages yet"}
                     </Text>
                   </View>
                 </TouchableOpacity>
@@ -208,7 +255,16 @@ export default function HomeScreen() {
             renderItem={({ item }) => (
               <TouchableOpacity
                 style={styles.contactCard}
-                onPress={() => openChat(item._id)}
+                onPress={async () => {
+                  const chat = await openChat(item._id);
+                  setContactModalVisible(false); // close modal
+                  fetchChats()
+                  navigation.navigate("ChatScreen", {
+                    chatId: chat._id,
+                    name: item.contactName,
+                    profileImage: item.profileImage?.url,
+                  });
+                }}
               >
                 <Image
                   source={{ uri: item.profileImage?.url }}
@@ -275,6 +331,41 @@ export default function HomeScreen() {
           </View>
         </View>
       </Modal>
+      {/* Menu Modal */}
+      <Modal
+        animationType="fade"
+        visible={menuVisible}
+        transparent
+        onRequestClose={() => setMenuVisible(false)}
+      >
+        <TouchableOpacity
+          style={styles.menuOverlay}
+          activeOpacity={1}
+          onPressOut={() => setMenuVisible(false)}
+        >
+          <View style={styles.menuContainer}>
+            <TouchableOpacity style={styles.menuItem}>
+              <Text style={styles.menuText}>New Group</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.menuItem}>
+              <Text style={styles.menuText}>New Broadcast</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.menuItem}>
+              <Text style={styles.menuText}>Linked Devices</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.menuItem}
+              onPress={() => {
+                navigation.navigate("SettingsScreen");
+                setMenuVisible(false);
+              }}
+            >
+              <Text style={styles.menuText}>Settings</Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </Modal>
+
     </SafeAreaView>
   );
 }
@@ -392,4 +483,29 @@ const styles = StyleSheet.create({
   actionButton: { alignItems: "center", marginHorizontal: 12 },
   actionLabel: { fontSize: 13, marginTop: 6, color: "#0A84FF", fontWeight: "500" },
   closeProfileBtn: { position: "absolute", top: 10, right: 10 },
+
+  menuOverlay: {
+    flex: 1,
+    justifyContent: "flex-start",
+    alignItems: "flex-end",
+    backgroundColor: "rgba(0,0,0,0.2)",
+    paddingTop: 50,
+    paddingRight: 10,
+  },
+  menuContainer: {
+    backgroundColor: "#fff",
+    borderRadius: 8,
+    paddingVertical: 5,
+    width: 200,
+    elevation: 5,
+  },
+  menuItem: {
+    paddingVertical: 12,
+    paddingHorizontal: 15,
+  },
+  menuText: {
+    fontSize: 16,
+    color: "#1C1C1E",
+  },
+
 });

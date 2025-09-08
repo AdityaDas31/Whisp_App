@@ -52,10 +52,10 @@ export const ChatProvider = ({ children }) => {
         prev.map((c) =>
           c._id === chatKey
             ? {
-                ...c,
-                latestMessage: message,
-                unread: activeChatId === chatKey ? false : true,
-              }
+              ...c,
+              latestMessage: message,
+              unread: activeChatId === chatKey ? false : true,
+            }
             : c
         )
       );
@@ -84,10 +84,10 @@ export const ChatProvider = ({ children }) => {
             msg.readBy?.includes(userId)
               ? msg
               : {
-                  ...msg,
-                  readBy: [...(msg.readBy || []), userId],
-                  status: "read",
-                }
+                ...msg,
+                readBy: [...(msg.readBy || []), userId],
+                status: "read",
+              }
           ),
         };
       });
@@ -154,24 +154,27 @@ export const ChatProvider = ({ children }) => {
     }
   };
 
-  const sendMessage = async (chatId, content) => {
-    if (!content?.trim()) return false;
+  const sendMessage = async (chatId, messageData) => {
     try {
+      // messageData should include type and related fields
       const res = await axios.post(
         `${API_BASE_URL}/message/message`,
-        { content, chatId },
+        { chatId, ...messageData },
         { headers: { Authorization: `Bearer ${token}` } }
       );
 
       const newMsg = { ...res.data.message, chatId, status: "sent" };
 
-      socket?.emit("sendMessage", { ...newMsg, chatId });
+      // Emit socket event
+      socket?.emit("sendMessage", newMsg);
 
+      // Update local messages
       setMessages((prev) => ({
         ...prev,
         [chatId]: [...(prev[chatId] || []), newMsg],
       }));
 
+      // Update latestMessage in chat list
       setChats((prev) =>
         prev.map((c) => (c._id === chatId ? { ...c, latestMessage: newMsg } : c))
       );
@@ -182,6 +185,8 @@ export const ChatProvider = ({ children }) => {
       return false;
     }
   };
+
+
 
   const markAsRead = async (chatId) => {
     try {
