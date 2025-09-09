@@ -8,11 +8,14 @@ import { useChatTheme } from "../context/ChatThemeContext";
 import { useNavigation } from "@react-navigation/native";
 
 const PRESET_THEMES = [
-  { id: "default", name: "Default", bg: "#F7F8FA", my: "#DCF8C6", other: "#FFFFFF" },
-  { id: "dark", name: "Dark", bg: "#111111", my: "#1E90FF", other: "#2C2C2C" },
-  { id: "sun", name: "Sun", bg: "#FFF7E6", my: "#FFD57E", other: "#FFF" },
-  { id: "ocean", name: "Ocean", bg: "#E8F6FF", my: "#A2DBFF", other: "#FFFFFF" },
-  // add more if you want
+  { id: "default", name: "Default", bg: "#F7F8FA", my: "#DCF8C6", other: "#FFFFFF", wallpaper: null, button: "#0A84FF", buttonText: "#FFFFFF", myText: "#000000", otherText: "#000000", normalText: "#000000" },
+  { id: "dark", name: "Dark", bg: "#111111", my: "#1E90FF", other: "#2C2C2C", wallpaper: null, button: "#1E90FF", buttonText: "#FFFFFF", myText: "#FFFFFF", otherText: "#FFFFFF", normalText: "#FFFFFF" },
+  { id: "sun", name: "Sun", bg: "#FFF7E6", my: "#FFD57E", other: "#FFF", wallpaper: null, button: "#FF9500", buttonText: "#FFFFFF", myText: "#333333", otherText: "#000000", normalText: "#000000" },
+  { id: "ocean", name: "Ocean", bg: "#E8F6FF", my: "#A2DBFF", other: "#FFFFFF", wallpaper: null, button: "#0077B6", buttonText: "#FFFFFF", button: "#40b2f9ff", buttonText: "#FFFFFF", myText: "#002B5B", otherText: "#000000", normalText: "#000000" },
+  { id: "naruto", name: "Naruto", bg: "#E6D7B9", my: "#F89C1C", other: "#49B9F2", wallpaper: "https://i.pinimg.com/736x/eb/76/90/eb7690967b22c0895a0a05aeb64d2e7b.jpg", button: "#F89C1C", buttonText: "#FFFFFF", myText: "#1B2A49", otherText: "#000000", normalText: "#000000" },
+  { id: "galaxy", name: "Galaxy", bg: "#0D1B2A", my: "#1B263B", other: "#415A77", wallpaper: "https://images.unsplash.com/photo-1444703686981-a3abbc4d4fe3?w=800", button: "#333943ff", buttonText: "#FFFFFF", myText: "#E0E0E0", otherText: "#E0E0E0", normalText: "#FFFFFF" },
+  { id: "rose", name: "Rose", bg: "#FFF0F5", my: "#FFB6C1", other: "#FFFFFF", wallpaper: null, button: "#FF69B4", buttonText: "#FFFFFF", myText: "#800020", otherText: "#000000", normalText: "#000000" },
+  { id: "matrix", name: "Matrix", bg: "#000000", my: "#00FF41", other: "#0D0D0D", wallpaper: "https://wallpaperaccess.com/full/138728.jpg", button: "#00FF41", buttonText: "#000000", myText: "#333333", otherText: "#FFFFFF", normalText: "#E0E0E0" },
 ];
 
 export default function ChatScreenThemeScreen() {
@@ -63,23 +66,50 @@ export default function ChatScreenThemeScreen() {
 
       <ScrollView contentContainerStyle={{ padding: 16 }}>
         <Text style={styles.sectionTitle}>Themes</Text>
-        <View style={{ marginBottom: 20 }}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.themeRowContainer}
+        >
           {PRESET_THEMES.map((t) => {
             const isSelected =
               t.bg === theme.backgroundColor &&
               t.my === theme.myMessage &&
               t.other === theme.otherMessage &&
-              !theme.wallpaper; // treat wallpaper set as non-preset
+              t.wallpaper === theme.wallpaper &&
+              t.button === theme.buttonBg &&
+              t.buttonText === theme.buttonText &&
+              t.myText === theme.myTextColor &&
+              t.otherText === theme.otherTextColor &&
+              t.normalText === theme.textColor;
+
             return (
               <TouchableOpacity
                 key={t.id}
-                style={[styles.themeRow, isSelected && styles.selectedRow]}
-                onPress={() => setTheme({ backgroundColor: t.bg, wallpaper: null, myMessage: t.my, otherMessage: t.other })}
+                style={[styles.themeCard, isSelected && styles.selectedRow]}
+                onPress={() =>
+                  setTheme({
+                    backgroundColor: t.bg,
+                    wallpaper: t.wallpaper || null,
+                    myMessage: t.my,
+                    otherMessage: t.other,
+                    buttonBg: t.button,
+                    buttonText: t.buttonText,
+                    myTextColor: t.myText,
+                    otherTextColor: t.otherText,
+                    textColor: t.normalText,
+                  })
+                }
               >
                 <View style={styles.preview}>
                   <View style={[styles.previewBg, { backgroundColor: t.bg }]}>
                     <View style={[styles.previewBubble, { backgroundColor: t.other }]} />
-                    <View style={[styles.previewBubble, { backgroundColor: t.my, alignSelf: "flex-end" }]} />
+                    <View
+                      style={[
+                        styles.previewBubble,
+                        { backgroundColor: t.my, alignSelf: "flex-end" },
+                      ]}
+                    />
                   </View>
                 </View>
                 <Text style={styles.themeName}>{t.name}</Text>
@@ -87,7 +117,8 @@ export default function ChatScreenThemeScreen() {
               </TouchableOpacity>
             );
           })}
-        </View>
+        </ScrollView>
+
 
         <Text style={styles.sectionTitle}>Customize</Text>
 
@@ -104,7 +135,8 @@ export default function ChatScreenThemeScreen() {
 
             <TouchableOpacity
               onPress={() => {
-                setPartial({ wallpaper: null });
+                // setPartial({ wallpaper: null });
+                setPartial({ wallpaper: t.wallpaper || null });
                 Alert.alert("Removed", "Wallpaper removed. Using color background.");
               }}
               style={[styles.option, { marginTop: 10 }]}
@@ -144,16 +176,23 @@ const styles = StyleSheet.create({
 
   sectionTitle: { fontSize: 14, fontWeight: "700", color: "#8E8E93", marginBottom: 8 },
 
-  themeRow: {
-    flexDirection: "row",
+
+  themeRowContainer: {
+    paddingVertical: 10,
+    paddingHorizontal: 5,
+  },
+
+  themeCard: {
+    width: 140,              // fixed card width
     alignItems: "center",
-    padding: 10,
+    padding: 12,
+    marginRight: 12,         // space between cards
     backgroundColor: "#fff",
-    borderRadius: 10,
-    marginBottom: 10,
+    borderRadius: 12,
     borderWidth: 1,
     borderColor: "transparent",
   },
+
   selectedRow: { borderColor: "#0A84FF" },
   preview: { marginRight: 12 },
   previewBg: {
@@ -164,7 +203,7 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
   },
   previewBubble: { width: 44, height: 24, borderRadius: 12 },
-  themeName: { flex: 1, fontSize: 16 },
+  themeName: { flex: 1, fontSize: 16, marginTop: 10 },
 
   option: {
     flexDirection: "row",

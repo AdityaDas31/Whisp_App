@@ -13,7 +13,8 @@ import {
     ScrollView,
     FlatList,
     Linking,
-    Pressable
+    Pressable,
+    StatusBar
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons, Entypo } from "@expo/vector-icons";
@@ -25,6 +26,7 @@ import * as ImagePicker from "expo-image-picker";
 import * as Location from "expo-location";
 import * as Contacts from "expo-contacts";
 import { useChatTheme } from "../context/ChatThemeContext";
+
 
 
 const emojis = ["😀", "😃", "😄", "😁", "😆", "🥹", "😅", "😂", "🤣", "🥲", "☺", "😊", "😇", "🙂", "🙃", "😉", "😌", "😍", "🥰", "😘", "😗", "😙", "😚", "😋", "😛", "😝", "😜", "🤪", "🤨", "🧐", "🤓", "😎", "🥸", "🤩", "🥳", "😏", "😒", "😞", "😔", "😟", "😕", "🙁", "☹", "😣", "😖", "😫", "😩", "🥺", "😢", "😭", "😤", "😠", "😡", "🤬", "🤯", "😳", "🥵", "🥶", "😶‍🌫️", "😱", "😨", "😰", "😥", "😓", "🤗", "🤔", "🫣", "🤭", "🫢", "🫡", "🤫", "🫠", "🤥", "😶", "🫥", "😐", "🫤", "😑", "🫨"];
@@ -58,6 +60,21 @@ export default function ChatScreen() {
 
     const flatListRef = useRef(null);
     const inputRef = useRef(null);
+
+    const { theme } = useChatTheme();
+
+    const isColorLight = (color) => {
+        if (!color) return false;
+        // remove # and parse
+        const c = color.substring(1);
+        const rgb = parseInt(c, 16);
+        const r = (rgb >> 16) & 0xff;
+        const g = (rgb >> 8) & 0xff;
+        const b = rgb & 0xff;
+        // luminance check
+        const luminance = 0.299 * r + 0.587 * g + 0.114 * b;
+        return luminance > 186; // threshold
+    };
 
     // Keyboard listeners
     useEffect(() => {
@@ -117,11 +134,15 @@ export default function ChatScreen() {
         if (item.status === "read") tickColor = "#0A84FF";
 
         // ✅ function to render message body based on type
-        const renderMessageContent = (message) => {
+        const renderMessageContent = (message, isMine) => {
+            const textColor = isMine ? theme.myTextColor : theme.otherTextColor;
+
             switch (message.type) {
                 case "text":
                     return (
-                        <Text style={styles.textMessage}>{message.content}</Text>
+                        <Text style={[styles.textMessage, { color: textColor }]}>
+                            {message.content}
+                        </Text>
                     );
 
                 case "location":
@@ -132,9 +153,14 @@ export default function ChatScreen() {
                         >
                             <View style={styles.cardHeader}>
                                 <Ionicons name="location" size={20} color="#d9534f" />
-                                <Text style={styles.cardTitle}>Shared Location</Text>
+                                <Text style={[styles.cardTitle, { color: textColor }]}>
+                                    Shared Location
+                                </Text>
                             </View>
-                            <Text style={styles.cardSubtitle} numberOfLines={1}>
+                            <Text
+                                style={[styles.cardSubtitle, { color: textColor }]}
+                                numberOfLines={1}
+                            >
                                 {message.location?.link}
                             </Text>
                         </TouchableOpacity>
@@ -146,8 +172,12 @@ export default function ChatScreen() {
                             <View style={styles.cardHeader}>
                                 <Ionicons name="person-circle" size={36} color="#4CAF50" />
                                 <View style={{ marginLeft: 8, alignItems: "flex-start" }}>
-                                    <Text style={styles.cardTitle}>{message.contact?.name}</Text>
-                                    <Text style={styles.cardSubtitle}>{message.contact?.phoneNumber}</Text>
+                                    <Text style={[styles.cardTitle, { color: textColor }]}>
+                                        {message.contact?.name}
+                                    </Text>
+                                    <Text style={[styles.cardSubtitle, { color: textColor }]}>
+                                        {message.contact?.phoneNumber}
+                                    </Text>
                                 </View>
                             </View>
                             <TouchableOpacity style={styles.contactAction}>
@@ -156,12 +186,15 @@ export default function ChatScreen() {
                         </View>
                     );
 
-
                 case "poll":
                     return (
                         <View style={styles.pollCard}>
-                            <Text style={styles.cardTitle}>{message.poll?.topic}</Text>
-                            <Text style={styles.pollHint}>Select one or more</Text>
+                            <Text style={[styles.cardTitle, { color: textColor }]}>
+                                {message.poll?.topic}
+                            </Text>
+                            <Text style={[styles.pollHint, { color: textColor }]}>
+                                Select one or more
+                            </Text>
 
                             {message.poll?.options?.map((opt, i) => (
                                 <Pressable
@@ -172,35 +205,29 @@ export default function ChatScreen() {
                                     <View style={styles.radioOuter}>
                                         {selected === i && <View style={styles.radioInner} />}
                                     </View>
-                                    <Text style={styles.pollOptionText}>{opt}</Text>
+                                    <Text style={[styles.pollOptionText, { color: textColor }]}>
+                                        {opt}
+                                    </Text>
                                 </Pressable>
                             ))}
 
                             <View style={styles.pollDivider} />
-                            <Text style={styles.pollFooter}>View votes</Text>
+                            <Text style={[styles.pollFooter, { color: textColor }]}>
+                                View votes
+                            </Text>
                         </View>
                     );
 
                 default:
-                    return <Text style={styles.textMessage}>Unsupported message</Text>;
+                    return (
+                        <Text style={[styles.textMessage, { color: textColor }]}>
+                            Unsupported message
+                        </Text>
+                    );
             }
         };
 
 
-
-
-
-
-        // return (
-        //     <View style={[styles.messageWrapper, isMine ? styles.myWrapper : styles.otherWrapper]}>
-        //         <View style={[styles.messageBubble, isMine ? styles.myMessage : styles.otherMessage]}>
-        //             {renderMessageContent(item)}
-        //             {isMine && (
-        //                 <Text style={[styles.tickText, { color: tickColor }]}>{tickIcon}</Text>
-        //             )}
-        //         </View>
-        //     </View>
-        // );
 
         return (
             <View
@@ -213,18 +240,20 @@ export default function ChatScreen() {
                     style={[
                         styles.messageBubble,
                         {
-                            backgroundColor: isMine ? theme.myMessage : theme.otherMessage,
+                            backgroundColor: isMine
+                                ? theme.myMessage
+                                : theme.otherMessage,
                         },
                     ]}
                 >
-                    {renderMessageContent(item)}
-
+                    {renderMessageContent(item, isMine)}
                     {isMine && (
                         <Text style={[styles.tickText, { color: tickColor }]}>{tickIcon}</Text>
                     )}
                 </View>
             </View>
         );
+
 
 
 
@@ -331,10 +360,13 @@ export default function ChatScreen() {
             c.phoneNumbers?.[0]?.number?.includes(searchQuery)
     );
 
-    const { theme } = useChatTheme();
 
     return (
-        <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.backgroundColor }]} edges={["top"]}>
+        <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.backgroundColor }]} edges={["top", "bottom"]}>
+            <StatusBar
+                backgroundColor={theme.backgroundColor} // ✅ same as SafeAreaView
+                barStyle={isColorLight(theme.textColor) ? "light-content" : "dark-content"}
+            />
             {theme.wallpaper && (
                 <Image
                     source={{ uri: theme.wallpaper }}
@@ -343,10 +375,10 @@ export default function ChatScreen() {
                 />
             )}
             {/* Header */}
-            <View style={styles.header}>
+            <View style={[styles.header, { backgroundColor: theme.backgroundColor, color: theme.textColor }]}>
                 <TouchableOpacity style={styles.headerLeft} onPress={() => setProfileVisible(true)}>
                     <Image source={{ uri: profileImage }} style={styles.headerImage} />
-                    <Text style={styles.headerName}>{name}</Text>
+                    <Text style={[styles.headerName, { color: theme.textColor }]}>{name}</Text>
                 </TouchableOpacity>
                 <View style={styles.headerIcons}>
                     <TouchableOpacity style={styles.iconButton}>
@@ -359,7 +391,7 @@ export default function ChatScreen() {
             </View>
 
             {/* Messages + Input */}
-            <View style={{ flex: 1 }}>
+            <View style={{ flex: 1, }}>
                 <KeyboardAwareFlatList
                     ref={flatListRef}
                     data={chatMessages}
@@ -374,7 +406,7 @@ export default function ChatScreen() {
                 />
 
                 {/* Input */}
-                <View style={[styles.inputContainer, { marginBottom: keyboardHeight }]}>
+                <View style={[styles.inputContainer, { marginBottom: keyboardHeight, backgroundColor: theme.backgroundColor }]}>
                     {/* Emoji / Keyboard Toggle */}
                     <TouchableOpacity style={styles.iconLeft} onPress={toggleEmojiKeyboard}>
                         {/* <Ionicons name={showEmoji ? "keyboard-outline" : "happy-outline"} size={24} color="#555" /> */}
@@ -409,8 +441,8 @@ export default function ChatScreen() {
                     )}
 
                     {/* Send */}
-                    <TouchableOpacity onPress={handleSend} style={styles.sendButton}>
-                        <Ionicons name="send" size={20} color="#fff" />
+                    <TouchableOpacity onPress={handleSend} style={[styles.sendButton, { backgroundColor: theme.buttonBg }]}>
+                        <Ionicons name="send" size={20} style={{ color: theme.buttonText }} />
                     </TouchableOpacity>
                 </View>
 
@@ -637,13 +669,14 @@ export default function ChatScreen() {
 const styles = StyleSheet.create({
     safeArea: { flex: 1, backgroundColor: "#F7F8FA" },
     header: {
-        flexDirection: "row", alignItems: "center", padding: 12, backgroundColor: "#FFFFFF", borderBottomWidth: 1, borderBottomColor: "#EAEAEA", justifyContent: "space-between",
-        ...Platform.select({
-            android: { elevation: 4 },
-            ios: {
-                shadowColor: "#000", shadowOpacity: 0.05, shadowRadius: 2, shadowOffset: { width: 0, height: 1 },
-            },
-        }),
+        flexDirection: "row", alignItems: "center", padding: 12, backgroundColor: "#FFFFFF", justifyContent: "space-between",
+        // borderBottomWidth: 1, borderBottomColor: "#FFB6C1",
+        // ...Platform.select({
+        //     android: { elevation: 4 },
+        //     ios: {
+        //         shadowColor: "#000", shadowOpacity: 0.05, shadowRadius: 2, shadowOffset: { width: 0, height: 1 },
+        //     },
+        // }),
     },
     headerLeft: { flexDirection: "row", alignItems: "center" },
     headerImage: { width: 42, height: 42, borderRadius: 21, marginRight: 12 },
@@ -684,7 +717,7 @@ const styles = StyleSheet.create({
     tickText: { fontSize: 11, marginTop: 4, alignSelf: "flex-end" },
 
     inputContainer: { flexDirection: "row", alignItems: "center", paddingHorizontal: 8, backgroundColor: "#F7F8FA", marginBottom: 30 },
-    inputWithIcons: { flex: 1, borderWidth: 1, borderColor: "#E0E0E0", borderRadius: 25, paddingLeft: 40, paddingRight: 110, paddingVertical: Platform.OS === "ios" ? 10 : 6, fontSize: 15, backgroundColor: "#FFFFFF", color: "#1C1C1E", maxHeight: 100, marginBottom: 30 },
+    inputWithIcons: { flex: 1, borderWidth: 1, borderColor: "#E0E0E0", borderRadius: 25, paddingLeft: 40, paddingRight: 110, paddingVertical: Platform.OS === "ios" ? 10 : 6, fontSize: 15, backgroundColor: "#FFFFFF", color: "#1C1C1E", maxHeight: 100, minHeight: 30, marginBottom: 30 },
     iconLeft: { position: "absolute", left: 12, zIndex: 10, marginBottom: 30 },
     attachIcon: { position: "absolute", zIndex: 10, marginBottom: 30 },
     iconRight: { position: "absolute", right: 70, zIndex: 10, marginBottom: 30 },
