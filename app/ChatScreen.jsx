@@ -1,5 +1,5 @@
 import { useRoute } from "@react-navigation/native";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useMemo } from "react";
 import {
     Image,
     Modal,
@@ -26,6 +26,11 @@ import * as ImagePicker from "expo-image-picker";
 import * as Location from "expo-location";
 import * as Contacts from "expo-contacts";
 import { useChatTheme } from "../context/ChatThemeContext";
+import { VideoView, useVideoPlayer } from "expo-video";
+import * as FileSystem from 'expo-file-system';
+import * as MediaLibrary from 'expo-media-library';
+import { Alert } from 'react-native';
+
 
 
 
@@ -35,9 +40,31 @@ const attachmentOptions = [
     { name: "Location", icon: "location-sharp", type: "location" },
     { name: "Contact", icon: "person-outline", type: "contact" },
     { name: "Document", icon: "document-text-outline", type: "document" },
+    { name: "Photos / Videos", icon: "camera-outline", type: "photos" },
     { name: "Audio", icon: "musical-notes-outline", type: "audio" },
     { name: "Poll", icon: "bar-chart-outline", type: "poll" },
 ];
+
+const VideoMessage = ({ uri }) => {
+    const player = useVideoPlayer(
+        { uri }, // must be wrapped in an object
+        (player) => {
+            player.loop = false;
+            // player.play(); // autoplay for testing
+            player.shouldPlay = false;
+        }
+    );
+
+    return (
+        <VideoView
+            style={{ width: 250, height: 200, borderRadius: 10 }}
+            player={player}
+            nativeControls
+            allowsFullscreen
+        />
+
+    );
+};
 export default function ChatScreen() {
     const route = useRoute();
     const { chatId, name, profileImage } = route.params;
@@ -57,6 +84,17 @@ export default function ChatScreen() {
     const [showContactsModal, setShowContactsModal] = useState(false);
     const [searchQuery, setSearchQuery] = useState("");
     const [selected, setSelected] = useState(null);
+    const [previewMedia, setPreviewMedia] = useState(null);
+    const [fullscreenMedia, setFullscreenMedia] = useState(null); // { uri, type }
+
+    const fullscreenPlayer = useVideoPlayer(
+        fullscreenMedia?.type === "video" ? fullscreenMedia.uri : null,
+        (player) => {
+            player.loop = false;
+            player.shouldPlay = true; // autoplay when modal opens
+        }
+    );
+
 
     const flatListRef = useRef(null);
     const inputRef = useRef(null);
@@ -122,6 +160,7 @@ export default function ChatScreen() {
     const removeEmoji = () => setText((prev) => prev.slice(0, -2));
 
     const chatMessages = messages[chatId] || [];
+
 
     const renderItem = ({ item }) => {
         const senderId = typeof item.sender === "object" ? item.sender._id : item.sender;
@@ -217,6 +256,35 @@ export default function ChatScreen() {
                             </Text>
                         </View>
                     );
+                case "media":
+                    if (message.media?.format === "image" || message.media?.format === "video") {
+                        return (
+                            <TouchableOpacity
+                                onPress={() =>
+                                    setFullscreenMedia({
+                                        uri: message.media.url,
+                                        type: message.media.format,
+                                    })
+                                }
+                            >
+                                {message.media.format === "image" ? (
+                                    <Image
+                                        source={{ uri: message.media.url }}
+                                        style={{ width: 200, height: 200, borderRadius: 10 }}
+                                    />
+                                ) : (
+                                    <VideoMessage uri={message.media.url} />
+                                )}
+                            </TouchableOpacity>
+                        );
+                    }
+
+                    return (
+                        <TouchableOpacity onPress={() => Linking.openURL(message.media?.url)}>
+                            <Text style={{ color: "blue" }}>Download File</Text>
+                        </TouchableOpacity>
+                    );
+
 
                 default:
                     return (
@@ -226,6 +294,10 @@ export default function ChatScreen() {
                     );
             }
         };
+
+        // console.log("Currently selected media URI:", fullscreenMedia?.uri);
+
+
 
 
 
@@ -334,7 +406,31 @@ export default function ChatScreen() {
         if (type === "poll") {
             setShowPollModal(true); // Open poll modal (frontend only)
         }
+
+        if (type === "photos") {
+            const result = await ImagePicker.launchImageLibraryAsync({
+                mediaTypes: ImagePicker.MediaTypeOptions.All,
+                allowsEditing: true,
+                quality: 0.8,
+            });
+
+            if (!result.canceled) {
+                const asset = result.assets[0];
+                setPreviewMedia({
+                    uri: result.assets[0].uri,
+                    type: result.assets[0].type, // "image" or "video"
+                });
+            }
+        }
+
     };
+
+    const videoPlayer = useVideoPlayer(
+        previewMedia?.type === "video" ? previewMedia.uri : null,
+        (player) => {
+            player.loop = false;
+        }
+    );
 
     const addPollOption = () => setPollOptions([...pollOptions, ""]);
     const updatePollOption = (index, value) => {
@@ -359,6 +455,42 @@ export default function ChatScreen() {
             c.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
             c.phoneNumbers?.[0]?.number?.includes(searchQuery)
     );
+
+    const downloadMedia = async (uri) => {
+        try {
+            // Request permission
+            const { status } = await MediaLibrary.requestPermissionsAsync();
+            if (status !== 'granted') {
+                Alert.alert("Permission denied", "Cannot save media without permission.");
+                return;
+            }
+
+            // Generate local file path
+            const fileUri = FileSystem.cacheDirectory + uri.split('/').pop();
+
+            // Download file to cache
+            const downloaded = await FileSystem.downloadAsync(uri, fileUri);
+
+            // Save to media library
+            const asset = await MediaLibrary.createAssetAsync(downloaded.uri);
+
+            // Create or get album named "Whisp"
+            const albumName = "Whisp";
+            let album = await MediaLibrary.getAlbumAsync(albumName);
+            if (!album) {
+                album = await MediaLibrary.createAlbumAsync(albumName, asset, false);
+            } else {
+                await MediaLibrary.addAssetsToAlbumAsync([asset], album, false);
+            }
+
+            Alert.alert("Success", `Media saved to ${albumName} folder!`);
+        } catch (error) {
+            console.log("Download error:", error);
+            Alert.alert("Error", "Failed to save media.");
+        }
+    };
+
+
 
 
     return (
@@ -662,6 +794,103 @@ export default function ChatScreen() {
                     </TouchableOpacity>
                 </View>
             </Modal>
+            {/* Preview Media Modal */}
+            <Modal visible={!!previewMedia} transparent animationType="slide">
+                <View style={styles.previewContainer}>
+                    <View style={styles.previewBox}>
+
+                        {previewMedia && previewMedia.type === "image" && (
+                            <Image
+                                source={{ uri: previewMedia.uri }}
+                                style={{ width: "100%", height: 300 }}
+                                resizeMode="contain"
+                            />
+                        )}
+
+                        {previewMedia && previewMedia.type === "video" && (
+                            <VideoView
+                                style={{ width: "100%", height: 300 }}
+                                player={videoPlayer}
+                                allowsFullscreen
+                                allowsPictureInPicture
+                                nativeControls
+                            />
+                        )}
+
+                        <View style={styles.previewActions}>
+                            <TouchableOpacity onPress={() => setPreviewMedia(null)} style={styles.cancelBtn}>
+                                <Text style={styles.cancelText}>Cancel</Text>
+                            </TouchableOpacity>
+
+                            <TouchableOpacity
+                                onPress={async () => {
+                                    await sendMessage(chatId, {
+                                        type: "media",
+                                        file: {
+                                            uri: previewMedia.uri,
+                                            name: `file.${previewMedia.type === "video" ? "mp4" : "jpg"}`,
+                                            type: `${previewMedia.type}/${previewMedia.type === "video" ? "mp4" : "jpeg"}`,
+                                        },
+                                    });
+                                    setPreviewMedia(null); // clear preview after send
+                                }}
+                                style={styles.sendBtn}
+                            >
+                                <Text style={styles.sendText}>Send</Text>
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+                </View>
+            </Modal>
+
+            {/* Full Screen Modal */}
+
+            <Modal
+                visible={!!fullscreenMedia}
+                transparent={true}
+                animationType="fade"
+                onRequestClose={() => setFullscreenMedia(null)}
+            >
+                {fullscreenMedia && (
+                    <View style={styles.fullscreenContainer}>
+                        {fullscreenMedia.type === "image" ? (
+                            <Image
+                                source={{ uri: fullscreenMedia.uri }}
+                                style={styles.fullscreenMedia}
+                                resizeMode="contain"
+                            />
+                        ) : (
+                            <VideoView
+                                style={styles.fullscreenMedia}
+                                player={fullscreenPlayer}
+                                nativeControls
+                                allowsFullscreen
+                                allowsPictureInPicture
+                            />
+                        )}
+
+                        <View style={styles.fullscreenButtons}>
+                            <TouchableOpacity
+                                style={styles.downloadButton}
+                                onPress={() => downloadMedia(fullscreenMedia.uri)}
+                            >
+                                <Text style={{ color: "#fff" }}>Download</Text>
+                            </TouchableOpacity>
+
+
+                            <TouchableOpacity
+                                style={styles.closeButton}
+                                onPress={() => setFullscreenMedia(null)}
+                            >
+                                <Text style={{ color: "#fff" }}>Close</Text>
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+                )}
+            </Modal>
+
+
+
         </SafeAreaView>
     );
 }
@@ -748,4 +977,71 @@ const styles = StyleSheet.create({
     pollInput: { borderWidth: 1, borderColor: "#ccc", borderRadius: 8, padding: 10, marginVertical: 6, },
     addOptionBtn: { marginVertical: 6, },
     submitPollBtn: { backgroundColor: "#0A84FF", padding: 12, borderRadius: 8, alignItems: "center", marginTop: 10 },
+
+    previewContainer: {
+        flex: 1,
+        backgroundColor: "rgba(0,0,0,0.8)",
+        justifyContent: "center",
+        alignItems: "center",
+    },
+    previewBox: {
+        width: "90%",
+        backgroundColor: "#fff",
+        padding: 10,
+        borderRadius: 12,
+        alignItems: "center",
+    },
+    previewActions: {
+        flexDirection: "row",
+        justifyContent: "space-between",
+        marginTop: 15,
+        width: "100%",
+    },
+    cancelBtn: {
+        padding: 10,
+        backgroundColor: "#ccc",
+        borderRadius: 8,
+        flex: 1,
+        marginRight: 5,
+        alignItems: "center",
+    },
+    sendBtn: {
+        padding: 10,
+        backgroundColor: "#0A84FF",
+        borderRadius: 8,
+        flex: 1,
+        marginLeft: 5,
+        alignItems: "center",
+    },
+    cancelText: { color: "#000", fontWeight: "600" },
+    sendText: { color: "#fff", fontWeight: "600" },
+
+    fullscreenContainer: {
+        flex: 1,
+        backgroundColor: "rgba(0,0,0,0.8)",
+        justifyContent: "center",
+        alignItems: "center",
+    },
+    fullscreenMedia: {
+        width: "100%",
+        height: "80%",
+    },
+    fullscreenButtons: {
+        position: "absolute",
+        bottom: 50,
+        flexDirection: "row",
+        justifyContent: "space-around",
+        width: "80%",
+    },
+    downloadButton: {
+        backgroundColor: "#0A84FF",
+        padding: 10,
+        borderRadius: 8,
+    },
+    closeButton: {
+        backgroundColor: "red",
+        padding: 10,
+        borderRadius: 8,
+    },
+
 });

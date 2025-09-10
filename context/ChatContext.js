@@ -154,14 +154,67 @@ export const ChatProvider = ({ children }) => {
     }
   };
 
+  // const sendMessage = async (chatId, messageData) => {
+  //   try {
+  //     // messageData should include type and related fields
+  //     const res = await axios.post(
+  //       `${API_BASE_URL}/message/message`,
+  //       { chatId, ...messageData },
+  //       { headers: { Authorization: `Bearer ${token}` } }
+  //     );
+
+  //     const newMsg = { ...res.data.message, chatId, status: "sent" };
+
+  //     // Emit socket event
+  //     socket?.emit("sendMessage", newMsg);
+
+  //     // Update local messages
+  //     setMessages((prev) => ({
+  //       ...prev,
+  //       [chatId]: [...(prev[chatId] || []), newMsg],
+  //     }));
+
+  //     // Update latestMessage in chat list
+  //     setChats((prev) =>
+  //       prev.map((c) => (c._id === chatId ? { ...c, latestMessage: newMsg } : c))
+  //     );
+
+  //     return true;
+  //   } catch (err) {
+  //     console.error("❌ Send message error:", err?.message || err);
+  //     return false;
+  //   }
+  // };
+
   const sendMessage = async (chatId, messageData) => {
     try {
-      // messageData should include type and related fields
-      const res = await axios.post(
-        `${API_BASE_URL}/message/message`,
-        { chatId, ...messageData },
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
+      let res;
+
+      if (messageData.file) {
+        // Handle media upload with FormData
+        const formData = new FormData();
+        formData.append("chatId", chatId);
+        formData.append("type", "media");
+        formData.append("file", {
+          uri: messageData.file.uri,
+          name: messageData.file.name,
+          type: messageData.file.type,
+        });
+
+        res = await axios.post(`${API_BASE_URL}/message/message`, formData, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "multipart/form-data",
+          },
+        });
+      } else {
+        // Normal JSON-based message (text, location, contact, poll, etc.)
+        res = await axios.post(
+          `${API_BASE_URL}/message/message`,
+          { chatId, ...messageData },
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+      }
 
       const newMsg = { ...res.data.message, chatId, status: "sent" };
 
