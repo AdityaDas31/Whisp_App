@@ -108,6 +108,8 @@ export default function HomeScreen() {
         return `👤 ${message.contact?.name || "Contact"}`;
       case "poll":
         return `🗳 ${message.poll?.topic || "Poll created"}`;
+      case "media":
+        return `📷 ${"Media File"}`;
       default:
         return "Unsupported message";
     }

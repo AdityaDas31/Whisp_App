@@ -59,7 +59,7 @@ const VideoMessage = ({ uri }) => {
         <VideoView
             style={{ width: 250, height: 200, borderRadius: 10 }}
             player={player}
-            nativeControls
+            nativeControls={false}
             allowsFullscreen
         />
 
@@ -91,7 +91,7 @@ export default function ChatScreen() {
         fullscreenMedia?.type === "video" ? fullscreenMedia.uri : null,
         (player) => {
             player.loop = false;
-            player.shouldPlay = true; // autoplay when modal opens
+            player.play() // autoplay) when modal opens
         }
     );
 
@@ -494,7 +494,7 @@ export default function ChatScreen() {
 
 
     return (
-        <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.backgroundColor }]} edges={["top", "bottom"]}>
+        <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.backgroundColor }]} edges={["top"]}>
             <StatusBar
                 backgroundColor={theme.backgroundColor} // ✅ same as SafeAreaView
                 barStyle={isColorLight(theme.textColor) ? "light-content" : "dark-content"}
@@ -538,10 +538,10 @@ export default function ChatScreen() {
                 />
 
                 {/* Input */}
-                <View style={[styles.inputContainer, { marginBottom: keyboardHeight, backgroundColor: theme.backgroundColor }]}>
+                {/* <View style={[styles.inputContainer, { marginBottom: keyboardHeight, backgroundColor: theme.backgroundColor }]}></View> */}
+                <View style={[styles.inputContainer, {  backgroundColor: theme.backgroundColor }]}>
                     {/* Emoji / Keyboard Toggle */}
                     <TouchableOpacity style={styles.iconLeft} onPress={toggleEmojiKeyboard}>
-                        {/* <Ionicons name={showEmoji ? "keyboard-outline" : "happy-outline"} size={24} color="#555" /> */}
                         {showEmoji ? <Entypo name="keyboard" size={24} color="#555" /> : <Ionicons name="happy-outline" size={24} color="#555" />}
 
                     </TouchableOpacity>
@@ -796,20 +796,20 @@ export default function ChatScreen() {
             </Modal>
             {/* Preview Media Modal */}
             <Modal visible={!!previewMedia} transparent animationType="slide">
-                <View style={styles.previewContainer}>
-                    <View style={styles.previewBox}>
+                <StatusBar backgroundColor="black" barStyle="light-content" />
+                <View style={styles.fullscreenContainer}>
 
                         {previewMedia && previewMedia.type === "image" && (
                             <Image
                                 source={{ uri: previewMedia.uri }}
-                                style={{ width: "100%", height: 300 }}
+                               style={styles.fullscreenMedia}
                                 resizeMode="contain"
                             />
                         )}
 
                         {previewMedia && previewMedia.type === "video" && (
                             <VideoView
-                                style={{ width: "100%", height: 300 }}
+                                 style={styles.fullscreenMedia}
                                 player={videoPlayer}
                                 allowsFullscreen
                                 allowsPictureInPicture
@@ -839,7 +839,6 @@ export default function ChatScreen() {
                                 <Text style={styles.sendText}>Send</Text>
                             </TouchableOpacity>
                         </View>
-                    </View>
                 </View>
             </Modal>
 
@@ -851,6 +850,7 @@ export default function ChatScreen() {
                 animationType="fade"
                 onRequestClose={() => setFullscreenMedia(null)}
             >
+                <StatusBar backgroundColor="black" barStyle="light-content" />
                 {fullscreenMedia && (
                     <View style={styles.fullscreenContainer}>
                         {fullscreenMedia.type === "image" ? (
@@ -899,13 +899,6 @@ const styles = StyleSheet.create({
     safeArea: { flex: 1, backgroundColor: "#F7F8FA" },
     header: {
         flexDirection: "row", alignItems: "center", padding: 12, backgroundColor: "#FFFFFF", justifyContent: "space-between",
-        // borderBottomWidth: 1, borderBottomColor: "#FFB6C1",
-        // ...Platform.select({
-        //     android: { elevation: 4 },
-        //     ios: {
-        //         shadowColor: "#000", shadowOpacity: 0.05, shadowRadius: 2, shadowOffset: { width: 0, height: 1 },
-        //     },
-        // }),
     },
     headerLeft: { flexDirection: "row", alignItems: "center" },
     headerImage: { width: 42, height: 42, borderRadius: 21, marginRight: 12 },
@@ -945,7 +938,7 @@ const styles = StyleSheet.create({
 
     tickText: { fontSize: 11, marginTop: 4, alignSelf: "flex-end" },
 
-    inputContainer: { flexDirection: "row", alignItems: "center", paddingHorizontal: 8, backgroundColor: "#F7F8FA", marginBottom: 30 },
+    inputContainer: { flexDirection: "row", alignItems: "center", paddingHorizontal: 8, backgroundColor: "#F7F8FA" },
     inputWithIcons: { flex: 1, borderWidth: 1, borderColor: "#E0E0E0", borderRadius: 25, paddingLeft: 40, paddingRight: 110, paddingVertical: Platform.OS === "ios" ? 10 : 6, fontSize: 15, backgroundColor: "#FFFFFF", color: "#1C1C1E", maxHeight: 100, minHeight: 30, marginBottom: 30 },
     iconLeft: { position: "absolute", left: 12, zIndex: 10, marginBottom: 30 },
     attachIcon: { position: "absolute", zIndex: 10, marginBottom: 30 },
@@ -1018,7 +1011,7 @@ const styles = StyleSheet.create({
 
     fullscreenContainer: {
         flex: 1,
-        backgroundColor: "rgba(0,0,0,0.8)",
+        backgroundColor: "black",
         justifyContent: "center",
         alignItems: "center",
     },
