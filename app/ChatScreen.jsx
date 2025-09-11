@@ -14,7 +14,8 @@ import {
     FlatList,
     Linking,
     Pressable,
-    StatusBar
+    StatusBar,
+    ActivityIndicator
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons, Entypo } from "@expo/vector-icons";
@@ -85,6 +86,8 @@ export default function ChatScreen() {
     const [searchQuery, setSearchQuery] = useState("");
     const [selected, setSelected] = useState(null);
     const [previewMedia, setPreviewMedia] = useState(null);
+    const [uploading, setUploading] = useState(false);
+    const [progress, setProgress] = useState(0);
     const [fullscreenMedia, setFullscreenMedia] = useState(null); // { uri, type }
 
     const fullscreenPlayer = useVideoPlayer(
@@ -539,7 +542,7 @@ export default function ChatScreen() {
 
                 {/* Input */}
                 {/* <View style={[styles.inputContainer, { marginBottom: keyboardHeight, backgroundColor: theme.backgroundColor }]}></View> */}
-                <View style={[styles.inputContainer, {  backgroundColor: theme.backgroundColor }]}>
+                <View style={[styles.inputContainer, { backgroundColor: theme.backgroundColor }]}>
                     {/* Emoji / Keyboard Toggle */}
                     <TouchableOpacity style={styles.iconLeft} onPress={toggleEmojiKeyboard}>
                         {showEmoji ? <Entypo name="keyboard" size={24} color="#555" /> : <Ionicons name="happy-outline" size={24} color="#555" />}
@@ -799,31 +802,36 @@ export default function ChatScreen() {
                 <StatusBar backgroundColor="black" barStyle="light-content" />
                 <View style={styles.fullscreenContainer}>
 
-                        {previewMedia && previewMedia.type === "image" && (
-                            <Image
-                                source={{ uri: previewMedia.uri }}
-                               style={styles.fullscreenMedia}
-                                resizeMode="contain"
-                            />
-                        )}
+                    {previewMedia && previewMedia.type === "image" && (
+                        <Image
+                            source={{ uri: previewMedia.uri }}
+                            style={styles.fullscreenMedia}
+                            resizeMode="contain"
+                        />
+                    )}
 
-                        {previewMedia && previewMedia.type === "video" && (
-                            <VideoView
-                                 style={styles.fullscreenMedia}
-                                player={videoPlayer}
-                                allowsFullscreen
-                                allowsPictureInPicture
-                                nativeControls
-                            />
-                        )}
+                    {previewMedia && previewMedia.type === "video" && (
+                        <VideoView
+                            style={styles.fullscreenMedia}
+                            player={videoPlayer}
+                            allowsFullscreen
+                            allowsPictureInPicture
+                            nativeControls
+                        />
+                    )}
 
-                        <View style={styles.previewActions}>
-                            <TouchableOpacity onPress={() => setPreviewMedia(null)} style={styles.cancelBtn}>
-                                <Text style={styles.cancelText}>Cancel</Text>
-                            </TouchableOpacity>
+                    <View style={styles.previewActions}>
+                        <TouchableOpacity onPress={() => setPreviewMedia(null)} style={styles.cancelBtn}>
+                            <Text style={styles.cancelText}>Cancel</Text>
+                        </TouchableOpacity>
 
-                            <TouchableOpacity
-                                onPress={async () => {
+                        <TouchableOpacity
+                            disabled={uploading} // disable while uploading
+                            onPress={async () => {
+                                try {
+                                    setUploading(true);
+                                    setProgress(0);
+
                                     await sendMessage(chatId, {
                                         type: "media",
                                         file: {
@@ -831,14 +839,34 @@ export default function ChatScreen() {
                                             name: `file.${previewMedia.type === "video" ? "mp4" : "jpg"}`,
                                             type: `${previewMedia.type}/${previewMedia.type === "video" ? "mp4" : "jpeg"}`,
                                         },
+                                        onUploadProgress: (e) => {
+                                            const percent = Math.round((e.loaded * 100) / e.total);
+                                            setProgress(percent);
+                                        },
                                     });
+
+                                    setUploading(false);
                                     setPreviewMedia(null); // clear preview after send
-                                }}
-                                style={styles.sendBtn}
-                            >
+                                } catch (error) {
+                                    console.log("Upload error:", error);
+                                    setUploading(false);
+                                }
+                            }}
+                            style={[styles.sendBtn, uploading && { opacity: 0.6 }]}
+                        >
+                            {uploading ? (
+                                <View style={{ flexDirection: "row", alignItems: "center" }}>
+                                    <ActivityIndicator color="#fff" size="small" />
+                                    <Text style={[styles.sendText, { marginLeft: 8 }]}>
+                                        {progress > 0 ? ` ${progress}%` : " Sending..."}
+                                    </Text>
+                                </View>
+                            ) : (
                                 <Text style={styles.sendText}>Send</Text>
-                            </TouchableOpacity>
-                        </View>
+                            )}
+                        </TouchableOpacity>
+
+                    </View>
                 </View>
             </Modal>
 
@@ -1008,6 +1036,18 @@ const styles = StyleSheet.create({
     },
     cancelText: { color: "#000", fontWeight: "600" },
     sendText: { color: "#fff", fontWeight: "600" },
+    progressContainer: {
+        position: "absolute",
+        top: "45%",
+        left: 0,
+        right: 0,
+        alignItems: "center",
+        justifyContent: "center",
+        backgroundColor: "rgba(0,0,0,0.6)",
+        padding: 20,
+        borderRadius: 10,
+    },
+
 
     fullscreenContainer: {
         flex: 1,

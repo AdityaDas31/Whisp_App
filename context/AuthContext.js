@@ -1,6 +1,7 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import axios from "axios";
 import React, { createContext, useContext, useEffect, useState } from "react";
+import { registerForPushNotificationsAsync  } from '../utils/notifications';
 
 const AuthContext = createContext();
 
@@ -106,11 +107,25 @@ export const AuthProvider = ({ children }) => {
         withCredentials: true,
       });
 
+      console.log("Verify OTP response:", res.status, res.data);
       // 🟢 Save user + token
       setUser(res.data.user);
       if (res.data.token) {
         setToken(res.data.token);
         await AsyncStorage.setItem("authToken", res.data.token);
+        // 👇 Register for notifications
+        const expoPushToken = await registerForPushNotificationsAsync();
+        if (expoPushToken) {
+          try {
+            await axios.post(
+              `${API}/save-push-token`,
+              { token: expoPushToken },
+              { headers: { Authorization: `Bearer ${res.data.token}` } }
+            );
+          } catch (e) {
+            console.log("❌ Failed to save push token:", e.message);
+          }
+        }
       }
 
       return res.data;
@@ -132,15 +147,29 @@ export const AuthProvider = ({ children }) => {
         withCredentials: true,
       });
 
+      console.log("Login response:", res.status, res.data);
       setUser(res.data.user);
       if (res.data.token) {
         setToken(res.data.token);
         await AsyncStorage.setItem("authToken", res.data.token);
+        // 👇 Register for notifications
+        const expoPushToken = await registerForPushNotificationsAsync();
+        if (expoPushToken) {
+          try {
+            await axios.post(
+              `${API}/save-push-token`,
+              { token: expoPushToken },
+              { headers: { Authorization: `Bearer ${res.data.token}` } }
+            );
+          } catch (e) {
+            console.log("❌ Failed to save push token:", e.message);
+          }
+        }
       }
 
       return res.data;
     } catch (err) {
-       console.log("Login error:", err.response?.data, err.message);
+      console.log("Login error:", err.response?.data, err.message);
       throw err.response?.data || { message: "Something went worng" };
     }
   }

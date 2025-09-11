@@ -7,6 +7,8 @@ import { useFonts } from "expo-font";
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import "react-native-reanimated";
+import * as Notifications from "expo-notifications";
+import { useEffect, useRef } from "react";
 
 import { useColorScheme } from "@/hooks/useColorScheme";
 import { AuthProvider } from "../context/AuthContext";
@@ -15,6 +17,26 @@ import { ChatThemeProvider } from "../context/ChatThemeContext";
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
+  const notificationListener = useRef<Notifications.Subscription | null>(null);
+  const responseListener = useRef<Notifications.Subscription | null>(null);
+
+  useEffect(() => {
+    notificationListener.current =
+      Notifications.addNotificationReceivedListener((notification) => {
+        console.log("Notification received:", notification);
+      });
+
+    responseListener.current =
+      Notifications.addNotificationResponseReceivedListener((response) => {
+        console.log("Notification response:", response);
+      });
+
+    return () => {
+      notificationListener.current?.remove();
+      responseListener.current?.remove();
+    };
+  }, []);
+
   const [loaded] = useFonts({
     SpaceMono: require("../assets/fonts/SpaceMono-Regular.ttf"),
   });
@@ -27,28 +49,46 @@ export default function RootLayout() {
   return (
     <AuthProvider>
       <ChatThemeProvider>
-      <ChatProvider>
-        <ThemeProvider
-          value={colorScheme === "dark" ? DarkTheme : DefaultTheme}
-        >
-          <Stack>
-            <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-            <Stack.Screen name="LoginScreen" options={{ headerShown: false }} />
-            <Stack.Screen name="GetStart" options={{ headerShown: false }} />
-            <Stack.Screen
-              name="RegisterScreen"
-              options={{ headerShown: false }}
-            />
-            <Stack.Screen name="ChatScreen" options={{ headerShown: false }} />
-            <Stack.Screen name="SettingsScreen" options={{ headerShown: false }} />
-            <Stack.Screen name="ProfileScreen" options={{ headerShown: false }} />
-            <Stack.Screen name="ChatSettingsScreen" options={{ headerShown: false }} />
-            <Stack.Screen name="ChatScreenThemeScreen" options={{ headerShown: false }} />
-            <Stack.Screen name="+not-found" />
-            <StatusBar style="auto" />
-          </Stack>
-        </ThemeProvider>
-      </ChatProvider>
+        <ChatProvider>
+          <ThemeProvider
+            value={colorScheme === "dark" ? DarkTheme : DefaultTheme}
+          >
+            <Stack>
+              <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+              <Stack.Screen
+                name="LoginScreen"
+                options={{ headerShown: false }}
+              />
+              <Stack.Screen name="GetStart" options={{ headerShown: false }} />
+              <Stack.Screen
+                name="RegisterScreen"
+                options={{ headerShown: false }}
+              />
+              <Stack.Screen
+                name="ChatScreen"
+                options={{ headerShown: false }}
+              />
+              <Stack.Screen
+                name="SettingsScreen"
+                options={{ headerShown: false }}
+              />
+              <Stack.Screen
+                name="ProfileScreen"
+                options={{ headerShown: false }}
+              />
+              <Stack.Screen
+                name="ChatSettingsScreen"
+                options={{ headerShown: false }}
+              />
+              <Stack.Screen
+                name="ChatScreenThemeScreen"
+                options={{ headerShown: false }}
+              />
+              <Stack.Screen name="+not-found" />
+              <StatusBar style="auto" />
+            </Stack>
+          </ThemeProvider>
+        </ChatProvider>
       </ChatThemeProvider>
     </AuthProvider>
   );

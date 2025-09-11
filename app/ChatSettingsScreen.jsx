@@ -3,9 +3,19 @@ import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from "react-nati
 import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export default function ChatSettingsScreen() {
     const navigation = useNavigation();
+
+    const clearAllData = async () => {
+        try {
+            await AsyncStorage.clear();
+            console.log('AsyncStorage cleared successfully!');
+        } catch (error) {
+            console.error('Error clearing AsyncStorage:', error);
+        }
+    };
 
     return (
         <SafeAreaView style={styles.safeArea} edges={["top"]}>
@@ -47,7 +57,7 @@ export default function ChatSettingsScreen() {
                         <Text style={styles.optionText}>Transfer Chat</Text>
                     </TouchableOpacity>
 
-                    <TouchableOpacity style={styles.option}>
+                    <TouchableOpacity style={styles.option} onPress={clearAllData}>
                         <Ionicons name="time-outline" size={24} color="#0A84FF" />
                         <Text style={styles.optionText}>Chat History</Text>
                     </TouchableOpacity>
