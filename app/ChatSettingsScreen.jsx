@@ -1,7 +1,7 @@
 import React from "react";
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaProvider } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
@@ -18,7 +18,7 @@ export default function ChatSettingsScreen() {
     };
 
     return (
-        <SafeAreaView style={styles.safeArea} edges={["top"]}>
+        <SafeAreaProvider style={styles.safeArea} edges={["top"]}>
             {/* Header */}
             <View style={styles.header}>
                 <TouchableOpacity onPress={() => navigation.goBack()}>
@@ -52,7 +52,7 @@ export default function ChatSettingsScreen() {
                         <Text style={styles.optionText}>Chat Backup</Text>
                     </TouchableOpacity>
 
-                    <TouchableOpacity style={styles.option}>
+                    <TouchableOpacity style={styles.option} onPress={() => navigation.navigate("SplashScreen")}>
                         <Ionicons name="swap-horizontal-outline" size={24} color="#0A84FF" />
                         <Text style={styles.optionText}>Transfer Chat</Text>
                     </TouchableOpacity>
@@ -63,7 +63,7 @@ export default function ChatSettingsScreen() {
                     </TouchableOpacity>
                 </View>
             </ScrollView>
-        </SafeAreaView>
+        </SafeAreaProvider>
     );
 }
 

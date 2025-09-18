@@ -1,3 +1,4 @@
+import { Ionicons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
 import axios from "axios";
 import * as Contacts from "expo-contacts";
@@ -13,12 +14,11 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { SafeAreaProvider } from "react-native-safe-area-context";
 import { useAuth } from "../../context/AuthContext";
 import { useChats } from "../../context/ChatContext";
-import { Ionicons } from "@expo/vector-icons";
-import { SafeAreaView } from "react-native-safe-area-context";
 
-const API_BASE_URL = "http://192.168.0.100:5000/api/v1";
+const API_BASE_URL = "http://192.168.0.101:5000/api/v1";
 
 export default function HomeScreen() {
   const [loading, setLoading] = useState(false);
@@ -143,7 +143,7 @@ export default function HomeScreen() {
 
 
   return (
-    <SafeAreaView style={styles.safeArea} edges={["top"]}>
+    <SafeAreaProvider style={styles.safeArea} edges={["top"]}>
       {/* Header */}
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Whisp</Text>
@@ -173,6 +173,7 @@ export default function HomeScreen() {
                     const chat = await openChat(otherUser._id);
                     navigation.navigate("ChatScreen", {
                       chatId: chat._id,
+                      userId: otherUser._id,
                       name: item.isGroupChat ? item.chatName : otherUser.name,
                       profileImage: item.isGroupChat
                         ? item.groupImage?.url
@@ -208,18 +209,28 @@ export default function HomeScreen() {
                       <Text style={styles.chatName}>
                         {item.isGroupChat ? item.chatName : otherUser?.name}
                       </Text>
-                      <Text style={styles.chatTime}>{formatChatTime(item.createdAt)}</Text>
+                      <Text style={styles.chatTime}>
+                        {formatChatTime(item.latestMessage?.createdAt || item.createdAt)}
+                      </Text>
                     </View>
                     <Text
                       numberOfLines={1}
                       style={[
                         styles.chatMessage,
-                        item.unread && { color: "#0A84FF", fontWeight: "600" },
+                        item.unreadCount > 0 && { color: "#0A84FF", fontWeight: "600" },
                       ]}
                     >
                       {getPreviewText(item.latestMessage) || "No messages yet"}
                     </Text>
+
                   </View>
+                  {item.unreadCount > 0 && (
+                  <View style={styles.unreadBadge}>
+                    <Text style={styles.unreadText}>
+                      {item.unreadCount}
+                    </Text>
+                  </View>
+                  )}
                 </TouchableOpacity>
               );
             }}
@@ -243,7 +254,7 @@ export default function HomeScreen() {
         visible={contactModalVisible}
         onRequestClose={() => setContactModalVisible(false)}
       >
-        <SafeAreaView style={styles.modalContainer}>
+        <SafeAreaProvider style={styles.modalContainer}>
           <View style={styles.modalHeader}>
             <Text style={styles.modalTitle}>Select Contact</Text>
             <TouchableOpacity onPress={() => setContactModalVisible(false)}>
@@ -284,7 +295,7 @@ export default function HomeScreen() {
               <Text style={styles.empty}>No contacts found on app.</Text>
             }
           />
-        </SafeAreaView>
+        </SafeAreaProvider>
       </Modal>
 
       {/* Profile Modal */}
@@ -368,7 +379,7 @@ export default function HomeScreen() {
         </TouchableOpacity>
       </Modal>
 
-    </SafeAreaView>
+    </SafeAreaProvider>
   );
 }
 
@@ -509,5 +520,23 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: "#1C1C1E",
   },
+
+  unreadBadge: {
+    backgroundColor: "#0A84FF",
+    borderRadius: 12,
+    minWidth: 24,
+    height: 24,
+    justifyContent: "center",
+    alignItems: "center",
+    top: 40,
+    position: "absolute",
+    right: 20,
+  },
+  unreadText: {
+    color: "white",
+    fontSize: 12,
+    fontWeight: "600",
+  },
+
 
 });

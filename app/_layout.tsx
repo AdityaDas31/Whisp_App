@@ -1,3 +1,4 @@
+import * as SplashScreen from "expo-splash-screen";
 import {
   DarkTheme,
   DefaultTheme,
@@ -8,18 +9,23 @@ import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import "react-native-reanimated";
 import * as Notifications from "expo-notifications";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { useColorScheme } from "@/hooks/useColorScheme";
 import { AuthProvider } from "../context/AuthContext";
 import { ChatProvider } from "../context/ChatContext";
 import { ChatThemeProvider } from "../context/ChatThemeContext";
+import Splash from "./SplashScreen";
+
+SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
+  const [showSplash, setShowSplash] = useState(true);
   const notificationListener = useRef<Notifications.Subscription | null>(null);
   const responseListener = useRef<Notifications.Subscription | null>(null);
 
+  // ✅ Notifications hook
   useEffect(() => {
     notificationListener.current =
       Notifications.addNotificationReceivedListener((notification) => {
@@ -37,13 +43,20 @@ export default function RootLayout() {
     };
   }, []);
 
+  // ✅ Fonts hook
   const [loaded] = useFonts({
     SpaceMono: require("../assets/fonts/SpaceMono-Regular.ttf"),
   });
 
-  if (!loaded) {
-    // Async font loading only occurs in development.
-    return null;
+  useEffect(() => {
+    if (!showSplash && loaded) {
+      SplashScreen.hideAsync();
+    }
+  }, [showSplash, loaded]);
+
+  // ✅ Loading state
+  if (showSplash || !loaded) {
+    return <Splash onFinish={() => setShowSplash(false)} />;
   }
 
   return (
@@ -82,6 +95,10 @@ export default function RootLayout() {
               />
               <Stack.Screen
                 name="ChatScreenThemeScreen"
+                options={{ headerShown: false }}
+              />
+              <Stack.Screen
+                name="SplashScreen"
                 options={{ headerShown: false }}
               />
               <Stack.Screen name="+not-found" />

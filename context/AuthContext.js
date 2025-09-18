@@ -1,7 +1,7 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import axios from "axios";
 import React, { createContext, useContext, useEffect, useState } from "react";
-import { registerForPushNotificationsAsync  } from '../utils/notifications';
+import { registerForPushNotificationsAsync } from '../utils/notifications';
 
 const AuthContext = createContext();
 
@@ -11,7 +11,7 @@ export const AuthProvider = ({ children }) => {
   const [token, setToken] = useState(null);
 
   // 🌍 API Base URL
-  const API = "http://192.168.0.100:5000/api/v1/user";
+  const API = "http://192.168.0.101:5000/api/v1/user";
 
   // 📌 Load token on app start
   useEffect(() => {

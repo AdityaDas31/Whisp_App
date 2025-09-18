@@ -17,7 +17,7 @@ import {
     StatusBar,
     ActivityIndicator
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaProvider } from "react-native-safe-area-context";
 import { Ionicons, Entypo } from "@expo/vector-icons";
 import { KeyboardAwareFlatList } from "react-native-keyboard-aware-scroll-view";
 import { useAuth } from "../context/AuthContext";
@@ -31,6 +31,10 @@ import { VideoView, useVideoPlayer } from "expo-video";
 import * as FileSystem from 'expo-file-system';
 import * as MediaLibrary from 'expo-media-library';
 import { Alert } from 'react-native';
+import ProfileModal from "../components/ProfileModal";
+import AttachModal from "../components/AttachModal";
+import ContactsModal from "../components/ContactsModal";
+import PollModal from "../components/PollModal";
 
 
 
@@ -68,9 +72,9 @@ const VideoMessage = ({ uri }) => {
 };
 export default function ChatScreen() {
     const route = useRoute();
-    const { chatId, name, profileImage } = route.params;
+    const { chatId, name, profileImage, userId } = route.params;
     const { user } = useAuth();
-    const { fetchMessages, sendMessage, messages, joinChat, markAsRead } = useChats();
+    const { fetchMessages, sendMessage, messages, joinChat, userStatus } = useChats();
 
     const [text, setText] = useState("");
     const [profileVisible, setProfileVisible] = useState(false);
@@ -136,12 +140,8 @@ export default function ChatScreen() {
     useEffect(() => {
         joinChat(chatId);
         fetchMessages(chatId);
-        markAsRead(chatId);
     }, [chatId]);
 
-    useEffect(() => {
-        if (messages[chatId]?.length) markAsRead(chatId);
-    }, [messages[chatId]]);
 
     const handleSend = async () => {
         if (!text.trim()) return;
@@ -168,12 +168,6 @@ export default function ChatScreen() {
     const renderItem = ({ item }) => {
         const senderId = typeof item.sender === "object" ? item.sender._id : item.sender;
         const isMine = senderId === user._id;
-
-        let tickIcon = "✓"; // sent
-        let tickColor = "#555";
-
-        if (item.status === "delivered") tickIcon = "✓✓";
-        if (item.status === "read") tickColor = "#0A84FF";
 
         // ✅ function to render message body based on type
         const renderMessageContent = (message, isMine) => {
@@ -297,13 +291,6 @@ export default function ChatScreen() {
                     );
             }
         };
-
-        // console.log("Currently selected media URI:", fullscreenMedia?.uri);
-
-
-
-
-
         return (
             <View
                 style={[
@@ -322,9 +309,6 @@ export default function ChatScreen() {
                     ]}
                 >
                     {renderMessageContent(item, isMine)}
-                    {isMine && (
-                        <Text style={[styles.tickText, { color: tickColor }]}>{tickIcon}</Text>
-                    )}
                 </View>
             </View>
         );
@@ -428,6 +412,8 @@ export default function ChatScreen() {
 
     };
 
+
+
     const videoPlayer = useVideoPlayer(
         previewMedia?.type === "video" ? previewMedia.uri : null,
         (player) => {
@@ -458,6 +444,19 @@ export default function ChatScreen() {
             c.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
             c.phoneNumbers?.[0]?.number?.includes(searchQuery)
     );
+
+    const handleSelectContact = (item) => {
+        sendMessage(chatId, {
+            type: "contact",
+            contact: {
+                name: item.name,
+                phoneNumber: item.phoneNumbers?.[0]?.number,
+            },
+        });
+
+        setShowContactsModal(false);
+    };
+
 
     const downloadMedia = async (uri) => {
         try {
@@ -493,13 +492,10 @@ export default function ChatScreen() {
         }
     };
 
-
-
-
     return (
-        <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.backgroundColor }]} edges={["top"]}>
+        <SafeAreaProvider style={[styles.safeArea, { backgroundColor: theme.backgroundColor }]} edges={["top"]}>
             <StatusBar
-                backgroundColor={theme.backgroundColor} // ✅ same as SafeAreaView
+                backgroundColor={theme.backgroundColor} // ✅ same as SafeAreaProvider
                 barStyle={isColorLight(theme.textColor) ? "light-content" : "dark-content"}
             />
             {theme.wallpaper && (
@@ -510,11 +506,23 @@ export default function ChatScreen() {
                 />
             )}
             {/* Header */}
-            <View style={[styles.header, { backgroundColor: theme.backgroundColor, color: theme.textColor }]}>
+            <View style={[styles.header, { backgroundColor: theme.backgroundColor }]}>
                 <TouchableOpacity style={styles.headerLeft} onPress={() => setProfileVisible(true)}>
                     <Image source={{ uri: profileImage }} style={styles.headerImage} />
-                    <Text style={[styles.headerName, { color: theme.textColor }]}>{name}</Text>
+
+                    {/* Name + Status stacked vertically */}
+                    <View style={{ flexDirection: "column" }}>
+                        <Text style={[styles.headerName, { color: theme.textColor }]}>{name}</Text>
+                        <Text style={{ fontSize: 12, color: theme.textColor }}>
+                            {userStatus[userId]?.online
+                                ? "Online"
+                                : userStatus[userId]?.lastSeen
+                                    ? `Last seen ${new Date(userStatus[userId].lastSeen).toLocaleTimeString()}`
+                                    : "Offline"}
+                        </Text>
+                    </View>
                 </TouchableOpacity>
+
                 <View style={styles.headerIcons}>
                     <TouchableOpacity style={styles.iconButton}>
                         <Ionicons name="call-outline" size={22} color="#0A84FF" />
@@ -524,6 +532,7 @@ export default function ChatScreen() {
                     </TouchableOpacity>
                 </View>
             </View>
+
 
             {/* Messages + Input */}
             <View style={{ flex: 1, }}>
@@ -546,7 +555,6 @@ export default function ChatScreen() {
                     {/* Emoji / Keyboard Toggle */}
                     <TouchableOpacity style={styles.iconLeft} onPress={toggleEmojiKeyboard}>
                         {showEmoji ? <Entypo name="keyboard" size={24} color="#555" /> : <Ionicons name="happy-outline" size={24} color="#555" />}
-
                     </TouchableOpacity>
 
                     {/* TextInput */}
@@ -616,187 +624,49 @@ export default function ChatScreen() {
                 )}
 
             </View>
+
             {/* Profile Modal */}
-            <Modal visible={profileVisible} animationType="slide" transparent onRequestClose={() => setProfileVisible(false)}>
-                <View style={styles.modalOverlay}>
-                    <View style={styles.modalContent}>
-                        <Image source={{ uri: profileImage }} style={styles.modalImage} />
-                        <Text style={styles.modalName}>{name}</Text>
 
-                        <View style={styles.modalActions}>
-                            <TouchableOpacity style={styles.modalButton}>
-                                <Ionicons name="notifications-off-outline" size={22} color="#FF3B30" />
-                                <Text style={styles.modalButtonText}>Mute</Text>
-                            </TouchableOpacity>
-                            <TouchableOpacity style={styles.modalButton}>
-                                <Ionicons name="close-circle-outline" size={22} color="#FF3B30" />
-                                <Text style={styles.modalButtonText}>Block</Text>
-                            </TouchableOpacity>
-                        </View>
+            <ProfileModal
+                visible={profileVisible}
+                onClose={() => setProfileVisible(false)}
+                profileData={{ name: name, profileImage: profileImage }}
+            />
 
-                        <TouchableOpacity style={styles.closeModal} onPress={() => setProfileVisible(false)}>
-                            <Text style={styles.closeModalText}>Close</Text>
-                        </TouchableOpacity>
-                    </View>
-                </View>
-            </Modal>
             {/* Attachments Modal */}
-            <Modal
+
+            <AttachModal
                 visible={showAttachModal}
-                animationType="slide"
-                transparent
-                onRequestClose={() => setShowAttachModal(false)}
-            >
-                <TouchableOpacity
-                    style={styles.modalOverlay}
-                    onPress={() => setShowAttachModal(false)}
-                />
-                <View style={styles.attachModal}>
-                    {attachmentOptions.map((item, index) => (
-                        <TouchableOpacity
-                            key={index}
-                            style={styles.attachOption}
-                            onPress={() => handleAttachmentPress(item.type)}
-                        >
-                            <Ionicons name={item.icon} size={28} color="#0A84FF" />
-                            <Text style={styles.attachText}>{item.name}</Text>
-                        </TouchableOpacity>
-                    ))}
-                </View>
-            </Modal>
+                onClose={() => setShowAttachModal(false)}
+                options={attachmentOptions}
+                onSelect={handleAttachmentPress}
+            />
+
             {/* Contact Modal */}
-            <Modal
+
+            <ContactsModal
                 visible={showContactsModal}
-                animationType="slide"
-                transparent={false}
-                onRequestClose={() => setShowContactsModal(false)} // Android back button support
-            >
-                <SafeAreaView style={{ flex: 1, backgroundColor: "#fff" }}>
-                    {/* Header */}
-                    <View style={{
-                        flexDirection: "row",
-                        alignItems: "center",
-                        justifyContent: "space-between",
-                        padding: 16,
-                        borderBottomWidth: 1,
-                        borderColor: "#eee"
-                    }}>
-                        <Text style={{ fontSize: 18, fontWeight: "bold" }}>
-                            Contacts ({contactsList.length})
-                        </Text>
-                        <TouchableOpacity onPress={() => setShowContactsModal(false)}>
-                            <Ionicons name="close" size={24} color="#333" />
-                        </TouchableOpacity>
-                    </View>
+                onClose={() => setShowContactsModal(false)}
+                contactsList={contactsList}
+                searchQuery={searchQuery}
+                setSearchQuery={setSearchQuery}
+                filteredContacts={filteredContacts}
+                onSelectContact={handleSelectContact}
+            />
 
-                    {/* Search Bar */}
-                    <View style={{ padding: 10, borderBottomWidth: 1, borderColor: "#eee" }}>
-                        <View style={{
-                            flexDirection: "row",
-                            alignItems: "center",
-                            backgroundColor: "#f2f2f2",
-                            borderRadius: 8,
-                            paddingHorizontal: 10,
-                        }}>
-                            <Ionicons name="search" size={20} color="#666" />
-                            <TextInput
-                                placeholder="Search contacts..."
-                                value={searchQuery}
-                                onChangeText={setSearchQuery}
-                                style={{ flex: 1, padding: 8 }}
-                            />
-                        </View>
-                    </View>
-
-
-                    {/* Contacts List */}
-                    <FlatList
-                        data={filteredContacts}
-                        keyExtractor={(item) => item.id}
-                        renderItem={({ item }) => (
-                            <TouchableOpacity
-                                style={{
-                                    flexDirection: "row",
-                                    alignItems: "center",
-                                    padding: 12,
-                                    borderBottomWidth: 1,
-                                    borderColor: "#f2f2f2",
-                                }}
-                                onPress={() => {
-                                    sendMessage(chatId, {
-                                        type: "contact",
-                                        contact: {
-                                            name: item.name,
-                                            phoneNumber: item.phoneNumbers?.[0]?.number,
-                                        },
-                                    });
-                                    setShowContactsModal(false);
-                                }}
-                            >
-                                {/* Avatar icon */}
-                                <View
-                                    style={{
-                                        width: 40,
-                                        height: 40,
-                                        borderRadius: 20,
-                                        backgroundColor: "#0A84FF",
-                                        alignItems: "center",
-                                        justifyContent: "center",
-                                        marginRight: 12,
-                                    }}
-                                >
-                                    <Ionicons name="person" size={20} color="#fff" />
-                                </View>
-
-                                {/* Contact info */}
-                                <View>
-                                    <Text style={{ fontSize: 16, fontWeight: "500", color: "#333" }}>
-                                        {item.name}
-                                    </Text>
-                                    {item.phoneNumbers?.[0]?.number ? (
-                                        <Text style={{ fontSize: 14, color: "#666" }}>
-                                            📞 {item.phoneNumbers[0].number}
-                                        </Text>
-                                    ) : (
-                                        <Text style={{ fontSize: 14, color: "#aaa" }}>No number</Text>
-                                    )}
-                                </View>
-                            </TouchableOpacity>
-                        )}
-                    />
-                </SafeAreaView>
-            </Modal>
             {/* Poll Modal */}
-            <Modal visible={showPollModal} animationType="slide" transparent>
-                <TouchableOpacity
-                    style={styles.modalOverlay}
-                    onPress={() => setShowPollModal(false)}
-                />
-                <View style={styles.pollModal}>
-                    <Text style={{ fontWeight: "bold", fontSize: 18, marginBottom: 12 }}>Create Poll</Text>
-                    <TextInput
-                        placeholder="Poll Topic"
-                        value={pollTopic}
-                        onChangeText={setPollTopic}
-                        style={styles.pollInput}
-                    />
-                    {pollOptions.map((opt, idx) => (
-                        <TextInput
-                            key={idx}
-                            placeholder={`Option ${idx + 1}`}
-                            value={opt}
-                            onChangeText={(text) => updatePollOption(idx, text)}
-                            style={styles.pollInput}
-                        />
-                    ))}
-                    <TouchableOpacity onPress={addPollOption} style={styles.addOptionBtn}>
-                        <Text style={{ color: "#0A84FF" }}>+ Add Option</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity onPress={submitPoll} style={styles.submitPollBtn}>
-                        <Text style={{ color: "#fff" }}>Send Poll</Text>
-                    </TouchableOpacity>
-                </View>
-            </Modal>
+
+            <PollModal
+                visible={showPollModal}
+                onClose={() => setShowPollModal(false)}
+                pollTopic={pollTopic}
+                setPollTopic={setPollTopic}
+                pollOptions={pollOptions}
+                updatePollOption={updatePollOption}
+                addPollOption={addPollOption}
+                submitPoll={submitPoll}
+            />
+
             {/* Preview Media Modal */}
             <Modal visible={!!previewMedia} transparent animationType="slide">
                 <StatusBar backgroundColor="black" barStyle="light-content" />
@@ -919,7 +789,7 @@ export default function ChatScreen() {
 
 
 
-        </SafeAreaView>
+        </SafeAreaProvider>
     );
 }
 
@@ -958,13 +828,10 @@ const styles = StyleSheet.create({
     pollHint: { fontSize: 12, color: "#777", marginBottom: 8, },
     pollOption: { flexDirection: "row", alignItems: "center", marginBottom: 6, },
     pollOptionText: { flex: 1, marginLeft: 6, fontSize: 14, color: "#333", },
-    pollBar: { height: 4, backgroundColor: "#0A84FF", borderRadius: 4, },
     radioOuter: { height: 20, width: 20, borderRadius: 10, borderWidth: 2, borderColor: "#0A84FF", alignItems: "center", justifyContent: "center", marginRight: 8, },
     radioInner: { height: 10, width: 10, borderRadius: 5, backgroundColor: "#0A84FF", },
     pollDivider: { height: 1, backgroundColor: "#ddd", marginVertical: 8 },
     pollFooter: { fontSize: 13, color: "#0A84FF", fontWeight: "500" },
-
-    tickText: { fontSize: 11, marginTop: 4, alignSelf: "flex-end" },
 
     inputContainer: { flexDirection: "row", alignItems: "center", paddingHorizontal: 8, backgroundColor: "#F7F8FA" },
     inputWithIcons: { flex: 1, borderWidth: 1, borderColor: "#E0E0E0", borderRadius: 25, paddingLeft: 40, paddingRight: 110, paddingVertical: Platform.OS === "ios" ? 10 : 6, fontSize: 15, backgroundColor: "#FFFFFF", color: "#1C1C1E", maxHeight: 100, minHeight: 30, marginBottom: 30 },
@@ -973,31 +840,10 @@ const styles = StyleSheet.create({
     iconRight: { position: "absolute", right: 70, zIndex: 10, marginBottom: 30 },
     sendButton: { backgroundColor: "#0A84FF", padding: 12, marginLeft: 6, borderRadius: 25, justifyContent: "center", alignItems: "center", marginBottom: 30 },
 
-    modalOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.4)", justifyContent: "center", alignItems: "center" },
-    modalContent: { backgroundColor: "#FFFFFF", padding: 20, borderRadius: 16, width: "80%", alignItems: "center", ...Platform.select({ android: { elevation: 6 }, ios: { shadowColor: "#000", shadowOpacity: 0.1, shadowRadius: 6, shadowOffset: { width: 0, height: 3 } } }) },
-    modalImage: { width: 100, height: 100, borderRadius: 50, marginBottom: 12 },
-    modalName: { fontSize: 20, fontWeight: "600", color: "#1C1C1E", marginBottom: 20 },
-    modalActions: { flexDirection: "row", marginBottom: 20 },
-    modalButton: { alignItems: "center", marginHorizontal: 16 },
-    modalButtonText: { fontSize: 14, marginTop: 4, color: "#333" },
-    closeModal: { backgroundColor: "#0A84FF", paddingVertical: 8, paddingHorizontal: 24, borderRadius: 20 },
-    closeModalText: { color: "#FFF", fontWeight: "600" },
-
     emojiContainer: { height: 250, backgroundColor: "#f2f2f2", borderTopWidth: 1, borderColor: "#ddd", position: "relative", },
     emojiGrid: { flexDirection: "row", flexWrap: "wrap", padding: 8, },
     emojiButton: { width: `${100 / 9}%`, justifyContent: "center", alignItems: "center", paddingVertical: 10, },
     deleteButton: { position: "absolute", bottom: 10, right: 10, padding: 8, },
-
-    attachModal: { position: "absolute", bottom: 0, width: "100%", backgroundColor: "#fff", padding: 16, borderTopLeftRadius: 16, borderTopRightRadius: 16, flexDirection: "row", justifyContent: "space-around", flexWrap: "wrap", bottom: 50 },
-    attachOption: { width: "30%", alignItems: "center", marginVertical: 12, },
-    attachText: { marginTop: 6, fontSize: 14, color: "#1C1C1E", textAlign: "center", },
-
-
-
-    pollModal: { position: "absolute", bottom: 0, width: "100%", backgroundColor: "#fff", padding: 16, borderTopLeftRadius: 16, borderTopRightRadius: 16, },
-    pollInput: { borderWidth: 1, borderColor: "#ccc", borderRadius: 8, padding: 10, marginVertical: 6, },
-    addOptionBtn: { marginVertical: 6, },
-    submitPollBtn: { backgroundColor: "#0A84FF", padding: 12, borderRadius: 8, alignItems: "center", marginTop: 10 },
 
     previewContainer: {
         flex: 1,
