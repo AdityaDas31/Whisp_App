@@ -15,7 +15,8 @@ import {
     Linking,
     Pressable,
     StatusBar,
-    ActivityIndicator
+    ActivityIndicator,
+    Animated
 } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { Ionicons, Entypo } from "@expo/vector-icons";
@@ -35,6 +36,7 @@ import ProfileModal from "../components/ProfileModal";
 import AttachModal from "../components/AttachModal";
 import ContactsModal from "../components/ContactsModal";
 import PollModal from "../components/PollModal";
+import { atan2, chain, derivative, e, evaluate, log, pi, pow, round, sqrt } from 'mathjs'
 
 
 
@@ -93,6 +95,10 @@ export default function ChatScreen() {
     const [uploading, setUploading] = useState(false);
     const [progress, setProgress] = useState(0);
     const [fullscreenMedia, setFullscreenMedia] = useState(null); // { uri, type }
+    const [showPopup, setShowPopup] = useState(false);
+    const [currentExpr, setCurrentExpr] = useState("");
+    const [mode, setMode] = useState(null);
+    const popupAnim = useRef(new Animated.Value(0)).current;
 
     const fullscreenPlayer = useVideoPlayer(
         fullscreenMedia?.type === "video" ? fullscreenMedia.uri : null,
@@ -492,6 +498,68 @@ export default function ChatScreen() {
         }
     };
 
+    const checkExpression = (value) => {
+        // 1️⃣ Check arithmetic expression (only if text looks like a math formula)
+        try {
+            if (/^[\d\s()+\-*/.]+$/.test(value.trim())) {
+                evaluate(value); // test if it's valid math
+                setCurrentExpr(value.trim());
+                setMode("arithmetic");
+                return true;
+            }
+        } catch { }
+
+        // 2️⃣ Check multiple numbers in text
+        const numbers = value.match(/\b\d+\b/g);
+        if (numbers && numbers.length >= 2) {
+            setCurrentExpr(value.trim());
+            setMode("sum");
+            return true;
+        }
+
+        return false;
+    };
+
+    const handleChange = (value) => {
+        setText(value);
+
+        if (checkExpression(value)) {
+            setShowPopup(true);
+            Animated.timing(popupAnim, {
+                toValue: 1,
+                duration: 200,
+                useNativeDriver: true,
+            }).start();
+        } else {
+            Animated.timing(popupAnim, {
+                toValue: 0,
+                duration: 200,
+                useNativeDriver: true,
+            }).start(() => setShowPopup(false));
+        }
+    };
+
+    const handleCalculate = () => {
+        let resultText = text;
+
+        if (mode === "arithmetic") {
+            try {
+                const result = evaluate(currentExpr);
+                resultText = `(${currentExpr}) = ${result}`;
+            } catch {
+                resultText = text;
+            }
+        } else if (mode === "sum") {
+            const numbers = text.match(/\b\d+\b/g)?.map(Number) || [];
+            const sum = numbers.reduce((a, b) => a + b, 0);
+            resultText = `${text} = ${sum}`;
+        }
+
+        setText(resultText);
+        setShowPopup(false);
+    };
+
+
     return (
         <SafeAreaProvider style={[styles.safeArea, { backgroundColor: theme.backgroundColor }]} edges={["top"]}>
             <StatusBar
@@ -562,11 +630,23 @@ export default function ChatScreen() {
                         ref={inputRef}
                         style={styles.inputWithIcons}
                         value={text}
-                        onChangeText={setText}
+                        onChangeText={handleChange}
                         placeholder="Type a message..."
                         placeholderTextColor="#A1A1A1"
                         multiline
                     />
+
+                    {showPopup && (
+                        <Animated.View style={[styles.popup, { opacity: popupAnim }]}>
+                            <Text>Calculate this expression?</Text>
+                            <TouchableOpacity onPress={handleCalculate} style={styles.button}>
+                                <Text style={{ color: "white" }}>Yes</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity onPress={() => setShowPopup(false)} style={[styles.button, { backgroundColor: "gray" }]}>
+                                <Text style={{ color: "white" }}>No</Text>
+                            </TouchableOpacity>
+                        </Animated.View>
+                    )}
 
                     {/* Paperclip */}
                     <TouchableOpacity
@@ -921,6 +1001,29 @@ const styles = StyleSheet.create({
         backgroundColor: "red",
         padding: 10,
         borderRadius: 8,
+    },
+
+    popup: {
+        position: "absolute",
+        bottom: 80,
+        left: 16,
+        right: 16,
+        backgroundColor: "#fff",
+        padding: 12,
+        borderRadius: 8,
+        shadowColor: "#000",
+        shadowOpacity: 0.2,
+        shadowRadius: 6,
+        elevation: 5,
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "space-between",
+    },
+    button: {
+        backgroundColor: "#007bff",
+        padding: 6,
+        borderRadius: 6,
+        marginLeft: 8,
     },
 
 });

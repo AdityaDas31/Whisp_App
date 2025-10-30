@@ -166,6 +166,7 @@ export default function HomeScreen() {
             keyExtractor={(item) => item._id}
             renderItem={({ item }) => {
               const otherUser = item.users.find((u) => u._id !== user._id);
+              const myId = user._id;
               return (
                 <TouchableOpacity
                   style={styles.chatCard}
@@ -173,6 +174,7 @@ export default function HomeScreen() {
                     const chat = await openChat(otherUser._id);
                     navigation.navigate("ChatScreen", {
                       chatId: chat._id,
+                      myId: myId,
                       userId: otherUser._id,
                       name: item.isGroupChat ? item.chatName : otherUser.name,
                       profileImage: item.isGroupChat
@@ -225,11 +227,11 @@ export default function HomeScreen() {
 
                   </View>
                   {item.unreadCount > 0 && (
-                  <View style={styles.unreadBadge}>
-                    <Text style={styles.unreadText}>
-                      {item.unreadCount}
-                    </Text>
-                  </View>
+                    <View style={styles.unreadBadge}>
+                      <Text style={styles.unreadText}>
+                        {item.unreadCount}
+                      </Text>
+                    </View>
                   )}
                 </TouchableOpacity>
               );
