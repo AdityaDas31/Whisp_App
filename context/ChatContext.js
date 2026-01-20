@@ -1,6 +1,6 @@
 // ChatContext.js
 import axios from "axios";
-import React, { createContext, useContext, useEffect, useState } from "react";
+import React, { createContext, useContext, useEffect, useRef, useState } from "react";
 import { Alert } from "react-native";
 import { io } from "socket.io-client";
 import { API_BASE_URL, SOCKET_URL } from "../config";
@@ -18,115 +18,102 @@ const getChatKeyFromMessage = (msg) => {
 
 export const ChatProvider = ({ children }) => {
   const { token, user } = useAuth();
+
   const [chats, setChats] = useState([]);
   const [messages, setMessages] = useState({});
   const [socket, setSocket] = useState(null);
   const [activeChatId, setActiveChatId] = useState(null);
   const [userStatus, setUserStatus] = useState({});
 
+  const activeChatRef = useRef(null); // 🔥 UPDATED
 
+  // ---------------- SOCKET INIT ----------------
   useEffect(() => {
-    const fetchInitialStatus = async () => {
-      try {
-        const res = await axios.get(`http://192.168.0.101:5000/online-users`);
-        const onlineMap = {};
-        res.data.onlineUsers.forEach(uid => {
-          onlineMap[uid] = { online: true };
-        });
-        setUserStatus(onlineMap);
-      } catch (err) {
-        console.error("❌ Failed to fetch initial online users");
-      }
-    };
-
-    if (token) fetchInitialStatus();
-  }, [token]);
-
-
-  // ✅ Init socket once
-  useEffect(() => {
-    if (!token || !user?._id) return; // ✅ wait for user
+    if (!token || !user?._id) return;
 
     const s = io(SOCKET_URL, { transports: ["websocket"] });
 
     s.on("connect", () => {
       console.log("✅ Socket connected:", s.id);
-
-      // ✅ only emit if user exists
-      if (user?._id) {
-        s.emit("registerUser", user._id);
-      }
-
-      if (activeChatId) {
-        s.emit("joinRoom", activeChatId);
-      }
+      s.emit("registerUser", user._id);
     });
 
-    s.on("disconnect", (reason) => {
-      console.log("❌ Socket disconnected:", reason);
-    });
-
-    // ✅ New message
+    // ✅ RECEIVE MESSAGE
     s.on("receiveMessage", (message) => {
-      const chatKey = getChatKeyFromMessage(message);
-      if (!chatKey) return;
+      const chatId = getChatKeyFromMessage(message);
+      if (!chatId) return;
 
+      // add message
       setMessages((prev) => ({
         ...prev,
-        [chatKey]: [...(prev[chatKey] || []), message],
+        [chatId]: [...(prev[chatId] || []), message],
       }));
 
-      // setChats((prev) =>
-      //   prev.map((c) =>
-      //     c._id === chatKey
-      //       ? {
-      //           ...c,
-      //           latestMessage: message,
-      //           unread: activeChatId === chatKey ? false : true,
-      //         }
-      //       : c
-      //   )
-      // );
+      // 🔥 UPDATED: unreadCount logic
+      setChats((prev) =>
+        prev.map((chat) => {
+          if (chat._id !== chatId) return chat;
 
-      setChats((prev) => {
-        const exists = prev.find((c) => c._id === chatKey);
-        if (exists) {
-          return prev.map((c) =>
-            c._id === chatKey
-              ? {
-                ...c,
-                latestMessage: message,
-                unreadCount:
-                  activeChatId === chatKey
-                    ? 0
-                    : (c.unreadCount || 0) + 1,
-              }
-              : c
-          );
-        } else {
-          // New chat created by first message
-          return [
-            {
-              _id: chatKey,
-              users: [user, message.sender], // fallback, update later from backend
-              latestMessage: message,
-              unread: true,
-            },
-            ...prev,
-          ];
-        }
-      });
+          const isActive = activeChatRef.current === chatId;
 
+          return {
+            ...chat,
+            latestMessage: message,
+            unreadCount: isActive
+              ? 0
+              : (chat.unreadCount || 0) + 1,
+          };
+        })
+      );
+
+      // auto mark seen if chat open
+      if (activeChatRef.current === chatId) {
+        s.emit("markSeen", { chatId });
+      }
     });
 
-    // ✅ User status
+    // ✅ MESSAGE DELIVERED
+    s.on("messageDelivered", ({ messageId, chatId }) => {
+      setMessages((prev) => ({
+        ...prev,
+        [chatId]: prev[chatId]?.map((m) =>
+          m._id === messageId ? { ...m, status: "delivered" } : m
+        ),
+      }));
+    });
+
+    // ✅ MESSAGE SEEN
+    s.on("messageSeen", ({ messageId, chatId }) => {
+      setMessages((prev) => ({
+        ...prev,
+        [chatId]: prev[chatId]?.map((m) =>
+          m._id === messageId ? { ...m, status: "seen" } : m
+        ),
+      }));
+
+      // 🔥 UPDATED: reset unreadCount
+      setChats((prev) =>
+        prev.map((chat) =>
+          chat._id === chatId ? { ...chat, unreadCount: 0 } : chat
+        )
+      );
+    });
+
+    // user online/offline
+
+    s.on("onlineUsersList", ({ users }) => {
+      const map = {};
+      users.forEach((id) => {
+        map[id] = { online: true };
+      });
+      setUserStatus(map);
+    });
+
     s.on("userOnline", ({ userId }) => {
-      console.log("✅ userOnline event:", userId);
       setUserStatus((prev) => ({ ...prev, [userId]: { online: true } }));
     });
 
     s.on("userOffline", ({ userId, lastSeen }) => {
-      console.log("❌ userOffline event:", userId, lastSeen);
       setUserStatus((prev) => ({
         ...prev,
         [userId]: { online: false, lastSeen },
@@ -139,19 +126,37 @@ export const ChatProvider = ({ children }) => {
       s.removeAllListeners();
       s.disconnect();
     };
-  }, [token, user?._id]); // ✅ only rerun when user is ready
+  }, [token, user?._id]);
 
-  // ✅ Join chat room when activeChatId changes
-  useEffect(() => {
-    if (!socket || !activeChatId) return;
-    socket.emit("joinRoom", activeChatId);
-  }, [socket, activeChatId]);
+  // ---------------- CHAT ACTIONS ----------------
 
+  // 🔹 JOIN CHAT
   const joinChat = (chatId) => {
-    if (!chatId) return;
+    if (!socket || !chatId) return;
+
+    activeChatRef.current = chatId; // 🔥 UPDATED
     setActiveChatId(chatId);
-    socket?.emit("joinRoom", chatId);
+
+    socket.emit("joinRoom", { chatId });
+
+    // 🔥 UPDATED: reset unread count immediately
+    setChats((prev) =>
+      prev.map((c) =>
+        c._id === chatId ? { ...c, unreadCount: 0 } : c
+      )
+    );
   };
+
+  // 🔹 LEAVE CHAT
+  const leaveChat = () => {
+    if (!socket || !activeChatRef.current) return;
+
+    socket.emit("leaveRoom", { chatId: activeChatRef.current });
+    activeChatRef.current = null;
+    setActiveChatId(null);
+  };
+
+  // ---------------- API ----------------
 
   const fetchChats = async () => {
     try {
@@ -171,16 +176,8 @@ export const ChatProvider = ({ children }) => {
         { userId },
         { headers: { Authorization: `Bearer ${token}` } }
       );
-      const chat = res.data.chat;
-
-      if (!chat?._id) return null;
-
-      setChats((prev) =>
-        prev.map((c) => (c._id === chat._id ? { ...c, unreadCount: 0 } : c))
-      );
-
-      return chat;
-    } catch (err) {
+      return res.data.chat;
+    } catch {
       Alert.alert("Error", "Could not open chat");
       return null;
     }
@@ -190,16 +187,11 @@ export const ChatProvider = ({ children }) => {
     try {
       const res = await axios.get(
         `${API_BASE_URL}/message/messages/${chatId}`,
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        }
+        { headers: { Authorization: `Bearer ${token}` } }
       );
-      setMessages((prev) => ({
-        ...prev,
-        [chatId]: res.data.messages || [],
-      }));
+      setMessages((prev) => ({ ...prev, [chatId]: res.data.messages }));
     } catch (err) {
-      console.error("❌ Fetch messages error:", err?.message || err);
+      console.error(err);
     }
   };
 
@@ -208,15 +200,10 @@ export const ChatProvider = ({ children }) => {
       let res;
 
       if (messageData.file) {
-        // Handle media upload with FormData
         const formData = new FormData();
         formData.append("chatId", chatId);
         formData.append("type", "media");
-        formData.append("file", {
-          uri: messageData.file.uri,
-          name: messageData.file.name,
-          type: messageData.file.type,
-        });
+        formData.append("file", messageData.file);
 
         res = await axios.post(`${API_BASE_URL}/message/message`, formData, {
           headers: {
@@ -225,7 +212,6 @@ export const ChatProvider = ({ children }) => {
           },
         });
       } else {
-        // Normal JSON-based message
         res = await axios.post(
           `${API_BASE_URL}/message/message`,
           { chatId, ...messageData },
@@ -233,27 +219,22 @@ export const ChatProvider = ({ children }) => {
         );
       }
 
-      const newMsg = { ...res.data.message, chatId };
+      const msg = res.data.message;
+      socket.emit("sendMessage", msg);
 
-      // Emit socket event
-      socket?.emit("sendMessage", newMsg);
-
-      // Update local messages
       setMessages((prev) => ({
         ...prev,
-        [chatId]: [...(prev[chatId] || []), newMsg],
+        [chatId]: [...(prev[chatId] || []), msg],
       }));
 
-      // Update latestMessage in chat list
       setChats((prev) =>
         prev.map((c) =>
-          c._id === chatId ? { ...c, latestMessage: newMsg } : c
+          c._id === chatId ? { ...c, latestMessage: msg } : c
         )
       );
 
       return true;
-    } catch (err) {
-      console.error("❌ Send message error:", err?.message || err);
+    } catch {
       return false;
     }
   };
@@ -262,14 +243,15 @@ export const ChatProvider = ({ children }) => {
     <ChatContext.Provider
       value={{
         chats,
-        setChats,
         fetchChats,
         openChat,
         fetchMessages,
         sendMessage,
         messages,
         joinChat,
+        leaveChat,
         userStatus,
+        socket,
       }}
     >
       {children}

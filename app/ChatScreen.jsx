@@ -18,7 +18,7 @@ import {
     ActivityIndicator,
     Animated
 } from "react-native";
-import { SafeAreaProvider } from "react-native-safe-area-context";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons, Entypo } from "@expo/vector-icons";
 import { KeyboardAwareFlatList } from "react-native-keyboard-aware-scroll-view";
 import { useAuth } from "../context/AuthContext";
@@ -76,7 +76,7 @@ export default function ChatScreen() {
     const route = useRoute();
     const { chatId, name, profileImage, userId } = route.params;
     const { user } = useAuth();
-    const { fetchMessages, sendMessage, messages, joinChat, userStatus } = useChats();
+    const { fetchMessages, sendMessage, messages, joinChat, userStatus, socket, leaveChat, fetchChats } = useChats();
 
     const [text, setText] = useState("");
     const [profileVisible, setProfileVisible] = useState(false);
@@ -146,7 +146,22 @@ export default function ChatScreen() {
     useEffect(() => {
         joinChat(chatId);
         fetchMessages(chatId);
+        return () => {
+            leaveChat();
+            fetchChats(); // refresh unread count
+        };
     }, [chatId]);
+
+    useEffect(() => {
+        if (!socket || !chatId || !user?._id) return;
+
+        socket.emit("markSeen", {
+            chatId,
+            userId: user._id,
+        });
+    }, [chatId, socket]);
+
+
 
 
     const handleSend = async () => {
@@ -304,6 +319,18 @@ export default function ChatScreen() {
                     isMine ? styles.myWrapper : styles.otherWrapper,
                 ]}
             >
+                {/* <View
+                    style={[
+                        styles.messageBubble,
+                        {
+                            backgroundColor: isMine
+                                ? theme.myMessage
+                                : theme.otherMessage,
+                        },
+                    ]}
+                >
+                    {renderMessageContent(item, isMine)}
+                </View> */}
                 <View
                     style={[
                         styles.messageBubble,
@@ -315,11 +342,26 @@ export default function ChatScreen() {
                     ]}
                 >
                     {renderMessageContent(item, isMine)}
+
+                    {isMine && (
+                        <View style={{ alignSelf: "flex-end", marginTop: 4 }}>
+                            <Ionicons
+                                name={
+                                    item.status === "seen"
+                                        ? "checkmark-done"
+                                        : item.status === "delivered"
+                                            ? "checkmark-done"
+                                            : "checkmark"
+                                }
+                                size={16}
+                                color={item.status === "seen" ? "#0A84FF" : "#999"}
+                            />
+                        </View>
+                    )}
                 </View>
+
             </View>
         );
-
-
 
 
     };
@@ -561,7 +603,7 @@ export default function ChatScreen() {
 
 
     return (
-        <SafeAreaProvider style={[styles.safeArea, { backgroundColor: theme.backgroundColor }]} edges={["top"]}>
+        <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.backgroundColor }]} edges={["top"]}>
             <StatusBar
                 backgroundColor={theme.backgroundColor} // ✅ same as SafeAreaProvider
                 barStyle={isColorLight(theme.textColor) ? "light-content" : "dark-content"}
@@ -581,13 +623,27 @@ export default function ChatScreen() {
                     {/* Name + Status stacked vertically */}
                     <View style={{ flexDirection: "column" }}>
                         <Text style={[styles.headerName, { color: theme.textColor }]}>{name}</Text>
-                        <Text style={{ fontSize: 12, color: theme.textColor }}>
-                            {userStatus[userId]?.online
-                                ? "Online"
-                                : userStatus[userId]?.lastSeen
-                                    ? `Last seen ${new Date(userStatus[userId].lastSeen).toLocaleTimeString()}`
-                                    : "Offline"}
-                        </Text>
+
+                        <View style={{ flexDirection: "row", alignItems: "center", marginTop: 2 }}>
+                            {userStatus[userId]?.online ? (
+                                <>
+                                    {/* 🟢 Green dot with glow */}
+                                    <View style={styles.onlineDot} />
+
+                                    {/* Online text */}
+                                    <Text style={styles.onlineText}>Online</Text>
+                                </>
+                            ) : userStatus[userId]?.lastSeen ? (
+                                <Text style={styles.lastSeenText}>
+                                    {`Last seen ${new Date(userStatus[userId].lastSeen).toLocaleTimeString([], {
+                                        hour: "2-digit",
+                                        minute: "2-digit",
+                                    })}`}
+                                </Text>
+                            ) : null}
+                        </View>
+
+
                     </View>
                 </TouchableOpacity>
 
@@ -869,7 +925,7 @@ export default function ChatScreen() {
 
 
 
-        </SafeAreaProvider>
+        </SafeAreaView>
     );
 }
 
@@ -1025,5 +1081,34 @@ const styles = StyleSheet.create({
         borderRadius: 6,
         marginLeft: 8,
     },
+
+    onlineDot: {
+        width: 8,
+        height: 8,
+        borderRadius: 4,
+        backgroundColor: "#25D366", // WhatsApp green
+        marginRight: 6,
+
+        // ✨ Glow / bloom effect
+        shadowColor: "#25D366",
+        shadowOffset: { width: 0, height: 0 },
+        shadowOpacity: 0.9,
+        shadowRadius: 6,
+
+        // Android glow
+        elevation: 6,
+    },
+
+    onlineText: {
+        fontSize: 12,
+        color: "#25D366",
+        fontWeight: "500",
+    },
+
+    lastSeenText: {
+        fontSize: 12,
+        color: "#8E8E93", // soft gray
+    },
+
 
 });

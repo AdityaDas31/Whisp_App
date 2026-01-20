@@ -14,11 +14,10 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { SafeAreaProvider } from "react-native-safe-area-context";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuth } from "../../context/AuthContext";
 import { useChats } from "../../context/ChatContext";
-
-const API_BASE_URL = "http://192.168.0.101:5000/api/v1";
+import { API_BASE_URL } from "../../config";
 
 export default function HomeScreen() {
   const [loading, setLoading] = useState(false);
@@ -143,7 +142,7 @@ export default function HomeScreen() {
 
 
   return (
-    <SafeAreaProvider style={styles.safeArea} edges={["top"]}>
+    <SafeAreaView style={styles.safeArea} edges={["top"]}>
       {/* Header */}
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Whisp</Text>
@@ -212,7 +211,11 @@ export default function HomeScreen() {
                         {item.isGroupChat ? item.chatName : otherUser?.name}
                       </Text>
                       <Text style={styles.chatTime}>
-                        {formatChatTime(item.latestMessage?.createdAt || item.createdAt)}
+                        {item.latestMessage?.createdAt && (
+                          <Text style={styles.chatTime}>
+                            {formatChatTime(item.latestMessage.createdAt)}
+                          </Text>
+                        )}
                       </Text>
                     </View>
                     <Text
@@ -256,7 +259,7 @@ export default function HomeScreen() {
         visible={contactModalVisible}
         onRequestClose={() => setContactModalVisible(false)}
       >
-        <SafeAreaProvider style={styles.modalContainer}>
+        <SafeAreaView style={styles.modalContainer}>
           <View style={styles.modalHeader}>
             <Text style={styles.modalTitle}>Select Contact</Text>
             <TouchableOpacity onPress={() => setContactModalVisible(false)}>
@@ -297,7 +300,7 @@ export default function HomeScreen() {
               <Text style={styles.empty}>No contacts found on app.</Text>
             }
           />
-        </SafeAreaProvider>
+        </SafeAreaView>
       </Modal>
 
       {/* Profile Modal */}
@@ -381,7 +384,7 @@ export default function HomeScreen() {
         </TouchableOpacity>
       </Modal>
 
-    </SafeAreaProvider>
+    </SafeAreaView>
   );
 }
 
