@@ -76,7 +76,7 @@ export default function ChatScreen() {
     const route = useRoute();
     const { chatId, name, profileImage, userId } = route.params;
     const { user } = useAuth();
-    const { fetchMessages, sendMessage, messages, joinChat, userStatus, socket, leaveChat, fetchChats } = useChats();
+    const { sendMessage, messages, joinChat, userStatus, socket, leaveChat, fetchChats, loadLocalMessages } = useChats();
 
     const [text, setText] = useState("");
     const [profileVisible, setProfileVisible] = useState(false);
@@ -145,7 +145,7 @@ export default function ChatScreen() {
 
     useEffect(() => {
         joinChat(chatId);
-        fetchMessages(chatId);
+        loadLocalMessages(chatId);
         return () => {
             leaveChat();
             fetchChats(); // refresh unread count

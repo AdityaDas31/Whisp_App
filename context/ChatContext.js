@@ -5,6 +5,16 @@ import { Alert } from "react-native";
 import { io } from "socket.io-client";
 import { API_BASE_URL, SOCKET_URL } from "../config";
 import { useAuth } from "./AuthContext";
+import {
+  initDB,
+  saveMessage,
+  getMessagesByChat,
+  updateMessageStatus,
+  getUnackedMessages,
+  getChatsFromLocalDB,
+  getLatestMessageForChat,
+  markChatMessagesAsSeen
+} from "../db/chatDB";
 
 const ChatContext = createContext();
 
@@ -16,6 +26,8 @@ const getChatKeyFromMessage = (msg) => {
   );
 };
 
+
+
 export const ChatProvider = ({ children }) => {
   const { token, user } = useAuth();
 
@@ -24,8 +36,40 @@ export const ChatProvider = ({ children }) => {
   const [socket, setSocket] = useState(null);
   const [activeChatId, setActiveChatId] = useState(null);
   const [userStatus, setUserStatus] = useState({});
+  const [dbReady, setDbReady] = useState(false);
+
 
   const activeChatRef = useRef(null); // 🔥 UPDATED
+
+  const messageWriteInProgress = useRef(false);
+
+  let loadChatsTimer = null;
+
+
+  const updateMessageInState = (messageId, status) => {
+    setMessages((prev) => {
+      const updated = { ...prev };
+
+      for (const chatId in updated) {
+        updated[chatId] = updated[chatId].map((m) =>
+          m._id === messageId ? { ...m, status } : m
+        );
+      }
+
+      return updated;
+    });
+  };
+
+
+  useEffect(() => {
+    initDB()
+      .then(() => {
+        console.log("✅ SQLite ready");
+        setDbReady(true); // 🔥 IMPORTANT
+      })
+      .catch(err => console.log("❌ SQLite init error", err));
+  }, []);
+
 
   // ---------------- SOCKET INIT ----------------
   useEffect(() => {
@@ -33,71 +77,92 @@ export const ChatProvider = ({ children }) => {
 
     const s = io(SOCKET_URL, { transports: ["websocket"] });
 
-    s.on("connect", () => {
+    s.on("connect", async () => {
       console.log("✅ Socket connected:", s.id);
       s.emit("registerUser", user._id);
+
+      // 🔁 Retry ACKs
+      const pending = await getUnackedMessages();
+      pending.forEach((m) => {
+        s.emit("message:ack", { messageId: m.id });
+      });
     });
 
     // ✅ RECEIVE MESSAGE
-    s.on("receiveMessage", (message) => {
-      const chatId = getChatKeyFromMessage(message);
-      if (!chatId) return;
+    s.on("message:new", async (message) => {
+      try {
+        const chatId = message.chatId || message.chat?._id;
+        if (!chatId) return;
 
-      // add message
-      setMessages((prev) => ({
-        ...prev,
-        [chatId]: [...(prev[chatId] || []), message],
-      }));
+        messageWriteInProgress.current = true;
 
-      // 🔥 UPDATED: unreadCount logic
-      setChats((prev) =>
-        prev.map((chat) => {
-          if (chat._id !== chatId) return chat;
+        // 1️⃣ Save locally FIRST
+        await saveMessage(message, user._id);
 
-          const isActive = activeChatRef.current === chatId;
+        // 🔥 If user is currently inside this chat, mark seen locally
+        if (activeChatRef.current === chatId) {
+          await updateMessageStatus(message._id, "seen");
+        }
 
-          return {
-            ...chat,
-            latestMessage: message,
-            unreadCount: isActive
-              ? 0
-              : (chat.unreadCount || 0) + 1,
-          };
-        })
-      );
+        messageWriteInProgress.current = false;
 
-      // auto mark seen if chat open
-      if (activeChatRef.current === chatId) {
-        s.emit("markSeen", { chatId });
+        // 2️⃣ ACK to server ONLY after save
+        s.emit("message:ack", { messageId: message._id });
+
+
+        // ✅ persistence ACK (NEW)
+        s.emit("message:persisted", {
+          messageId: message._id,
+        });
+
+        await loadLocalMessages(chatId);
+
+        // 🔥 ADD THIS
+       safeLoadChatsFromLocalDB();
+
+
+        // 3️⃣ Reload from DB
+        const rows = await getMessagesByChat(chatId);
+        setMessages((prev) => ({
+          ...prev,
+          [chatId]: rows.map((r) => ({
+            _id: r.id,
+            chatId: r.chatId,
+            sender: r.senderId,
+            type: r.type,
+            content: r.content,
+            media: r.media ? JSON.parse(r.media) : null,
+            ...JSON.parse(r.extra || "{}"),
+            status: r.status,
+            createdAt: new Date(r.createdAt).toISOString(),
+          })),
+        }));
+      } catch (err) {
+        console.log("❌ message:new handler error", err);
       }
+
     });
 
+
     // ✅ MESSAGE DELIVERED
-    s.on("messageDelivered", ({ messageId, chatId }) => {
-      setMessages((prev) => ({
-        ...prev,
-        [chatId]: prev[chatId]?.map((m) =>
-          m._id === messageId ? { ...m, status: "delivered" } : m
-        ),
-      }));
+    s.on("message:delivered", async ({ messageId }) => {
+      await updateMessageStatus(messageId, "delivered");
+      updateMessageInState(messageId, "delivered");
     });
 
     // ✅ MESSAGE SEEN
-    s.on("messageSeen", ({ messageId, chatId }) => {
-      setMessages((prev) => ({
-        ...prev,
-        [chatId]: prev[chatId]?.map((m) =>
-          m._id === messageId ? { ...m, status: "seen" } : m
-        ),
-      }));
+    s.on("message:seen", async ({ messageId }) => {
+      // 1️⃣ Update SQLite
+      await updateMessageStatus(messageId, "seen");
 
-      // 🔥 UPDATED: reset unreadCount
-      setChats((prev) =>
-        prev.map((chat) =>
-          chat._id === chatId ? { ...chat, unreadCount: 0 } : chat
-        )
-      );
+      // 2️⃣ Update in-memory messages
+      updateMessageInState(messageId, "seen");
+
+      // 3️⃣ 🔥 Refresh HomeScreen data from SQLite
+      safeLoadChatsFromLocalDB();
+
     });
+
 
     // user online/offline
 
@@ -131,30 +196,46 @@ export const ChatProvider = ({ children }) => {
   // ---------------- CHAT ACTIONS ----------------
 
   // 🔹 JOIN CHAT
-  const joinChat = (chatId) => {
+  const joinChat = async (chatId) => {
     if (!socket || !chatId) return;
 
-    activeChatRef.current = chatId; // 🔥 UPDATED
+    activeChatRef.current = chatId;
     setActiveChatId(chatId);
 
-    socket.emit("joinRoom", { chatId });
+    // 1️⃣ Update LOCAL DB first (THIS IS KEY)
+    await markChatMessagesAsSeen(chatId);
 
-    // 🔥 UPDATED: reset unread count immediately
-    setChats((prev) =>
-      prev.map((c) =>
-        c._id === chatId ? { ...c, unreadCount: 0 } : c
-      )
-    );
+    // 2️⃣ Refresh chat list from SQLite
+    safeLoadChatsFromLocalDB();
+
+
+    // 3️⃣ Inform server
+    socket.emit("joinRoom", { chatId });
+    socket.emit("chat:seen", { chatId });
   };
 
+
   // 🔹 LEAVE CHAT
-  const leaveChat = () => {
+  const leaveChat = async () => {
     if (!socket || !activeChatRef.current) return;
 
     socket.emit("leaveRoom", { chatId: activeChatRef.current });
+
     activeChatRef.current = null;
     setActiveChatId(null);
+
+    // 🔥 Wait until DB is stable
+    const waitForDB = async () => {
+      while (messageWriteInProgress.current) {
+        await new Promise(res => setTimeout(res, 50));
+      }
+      safeLoadChatsFromLocalDB();
+
+    };
+
+    waitForDB();
   };
+
 
   // ---------------- API ----------------
 
@@ -183,17 +264,28 @@ export const ChatProvider = ({ children }) => {
     }
   };
 
-  const fetchMessages = async (chatId) => {
-    try {
-      const res = await axios.get(
-        `${API_BASE_URL}/message/messages/${chatId}`,
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      setMessages((prev) => ({ ...prev, [chatId]: res.data.messages }));
-    } catch (err) {
-      console.error(err);
-    }
+  const loadLocalMessages = async (chatId) => {
+    const rows = await getMessagesByChat(chatId);
+
+    // Convert DB rows → UI messages
+    const parsed = rows.map((r) => ({
+      _id: r.id,
+      chatId: r.chatId,
+      sender: r.senderId,
+      type: r.type,
+      content: r.content,
+      media: r.media ? JSON.parse(r.media) : null,
+      ...JSON.parse(r.extra || "{}"),
+      status: r.status,
+      createdAt: new Date(r.createdAt).toISOString(),
+    }));
+
+    setMessages((prev) => ({
+      ...prev,
+      [chatId]: parsed,
+    }));
   };
+
 
   const sendMessage = async (chatId, messageData) => {
     try {
@@ -220,13 +312,30 @@ export const ChatProvider = ({ children }) => {
       }
 
       const msg = res.data.message;
-      socket.emit("sendMessage", msg);
+
+      // save locally first
+      await saveMessage(msg, user._id);
+
+      // then emit to socket
+      socket.emit("sendMessage", { messageId: msg._id });
+
+      // reload from db
+      const rows = await getMessagesByChat(chatId);
 
       setMessages((prev) => ({
         ...prev,
-        [chatId]: [...(prev[chatId] || []), msg],
+        [chatId]: rows.map(r => ({
+          _id: r.id,
+          chatId: r.chatId,
+          sender: r.senderId,
+          type: r.type,
+          content: r.content,
+          media: r.media ? JSON.parse(r.media) : null,
+          ...JSON.parse(r.extra || "{}"),
+          status: r.status,
+          createdAt: new Date(r.createdAt).toISOString(),
+        })),
       }));
-
       setChats((prev) =>
         prev.map((c) =>
           c._id === chatId ? { ...c, latestMessage: msg } : c
@@ -239,19 +348,79 @@ export const ChatProvider = ({ children }) => {
     }
   };
 
+  const loadChatsFromLocalDB = async () => {
+    if (!dbReady || !token) return;
+    // 1️⃣ get chat metadata from server
+    const res = await axios.get(`${API_BASE_URL}/chat/chats`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    const serverChats = res.data.chats || [];
+
+    // 2️⃣ get local unread + last message
+    const localStats = await getChatsFromLocalDB(); // SQLite
+
+    const localMap = {};
+    localStats.forEach((row) => {
+      localMap[row.chatId] = row;
+    });
+
+    // 3️⃣ merge
+    const merged = [];
+
+    for (const chat of serverChats) {
+      const local = localMap[chat._id];
+      let latestMessage = null;
+
+      if (local) {
+        const lastMsg = await getLatestMessageForChat(chat._id);
+        if (lastMsg) {
+          latestMessage = {
+            type: lastMsg.type,
+            content: lastMsg.content,
+            media: lastMsg.media ? JSON.parse(lastMsg.media) : null,
+            ...JSON.parse(lastMsg.extra || "{}"),
+            createdAt: new Date(lastMsg.createdAt).toISOString(),
+          };
+        }
+      }
+
+      merged.push({
+        ...chat, // ✅ users, group info still here
+        latestMessage,
+        unreadCount: local?.unreadCount || 0,
+      });
+    }
+
+    setChats(merged);
+  };
+
+  const safeLoadChatsFromLocalDB = () => {
+    clearTimeout(loadChatsTimer);
+
+    loadChatsTimer = setTimeout(() => {
+      loadChatsFromLocalDB();
+    }, 100); // ⏱️ 100ms is enough
+  };
+
+
+
   return (
     <ChatContext.Provider
       value={{
         chats,
         fetchChats,
         openChat,
-        fetchMessages,
         sendMessage,
         messages,
         joinChat,
         leaveChat,
         userStatus,
         socket,
+        loadLocalMessages,
+        loadChatsFromLocalDB,
+        dbReady,
+        safeLoadChatsFromLocalDB
       }}
     >
       {children}

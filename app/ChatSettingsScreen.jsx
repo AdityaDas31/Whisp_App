@@ -4,18 +4,37 @@ import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { debugPrintMessages, resetDB, readLogFile , resetLogFile} from "../db/chatDB";
 
 export default function ChatSettingsScreen() {
     const navigation = useNavigation();
 
     const clearAllData = async () => {
         try {
-            await AsyncStorage.clear();
+            // await AsyncStorage.clear();
             console.log('AsyncStorage cleared successfully!');
         } catch (error) {
             console.error('Error clearing AsyncStorage:', error);
         }
     };
+
+    const resetLocalDatabase = async () => {
+        await resetDB();
+    }
+
+    const viewLocalDatabase = async () => {
+        await debugPrintMessages();
+    }
+
+    const logLocalDatabase = async () => {
+        const logs = await readLogFile();
+        console.log(logs);
+    }
+
+    const resetLocalDatabaseLogs = async () => {
+        await resetLogFile();
+
+    }
 
     return (
         <SafeAreaProvider style={styles.safeArea} edges={["top"]}>
@@ -61,6 +80,26 @@ export default function ChatSettingsScreen() {
                         <Ionicons name="time-outline" size={24} color="#0A84FF" />
                         <Text style={styles.optionText}>Chat History</Text>
                     </TouchableOpacity>
+
+                    <TouchableOpacity style={styles.option} onPress={viewLocalDatabase}>
+                        <Ionicons name="time-outline" size={24} color="#0A84FF" />
+                        <Text style={styles.optionText}>View Local Database</Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity style={styles.option} onPress={resetLocalDatabase}>
+                        <Ionicons name="time-outline" size={24} color="#0A84FF" />
+                        <Text style={styles.optionText}>Reset Local Database</Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity style={styles.option} onPress={logLocalDatabase}>
+                        <Ionicons name="time-outline" size={24} color="#0A84FF" />
+                        <Text style={styles.optionText}>Log Local Database</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={styles.option} onPress={resetLocalDatabaseLogs}>
+                        <Ionicons name="time-outline" size={24} color="#0A84FF" />
+                        <Text style={styles.optionText}>Reaset Log Local Database</Text>
+                    </TouchableOpacity>
+
                 </View>
             </ScrollView>
         </SafeAreaProvider>

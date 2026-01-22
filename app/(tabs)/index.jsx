@@ -18,6 +18,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuth } from "../../context/AuthContext";
 import { useChats } from "../../context/ChatContext";
 import { API_BASE_URL } from "../../config";
+import { StatusBar } from "expo-status-bar";
 
 export default function HomeScreen() {
   const [loading, setLoading] = useState(false);
@@ -29,13 +30,19 @@ export default function HomeScreen() {
   const [menuVisible, setMenuVisible] = useState(false);
 
   const { token, user } = useAuth();
-  const { chats, fetchChats, openChat } = useChats();
+  const { chats, openChat, loadChatsFromLocalDB, dbReady, safeLoadChatsFromLocalDB  } = useChats();
   const navigation = useNavigation();
 
   useEffect(() => {
     getContactsAndSync();
-    fetchChats();
   }, []);
+
+  useEffect(() => {
+    if (chats.length === 0) {
+      safeLoadChatsFromLocalDB();
+    }
+  }, [dbReady]);
+
 
   const normalizeNumber = (num) => num.replace(/[^0-9]/g, "");
 
@@ -143,6 +150,7 @@ export default function HomeScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea} edges={["top"]}>
+      <StatusBar backgroundColor="black" barStyle="light-content" />
       {/* Header */}
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Whisp</Text>
@@ -171,6 +179,10 @@ export default function HomeScreen() {
                   style={styles.chatCard}
                   onPress={async () => {
                     const chat = await openChat(otherUser._id);
+                    if (!chat?._id) {
+                      Alert.alert("Error", "Chat could not be opened");
+                      return;
+                    }
                     navigation.navigate("ChatScreen", {
                       chatId: chat._id,
                       myId: myId,
@@ -276,7 +288,7 @@ export default function HomeScreen() {
                 onPress={async () => {
                   const chat = await openChat(item._id);
                   setContactModalVisible(false); // close modal
-                  fetchChats()
+                  safeLoadChatsFromLocalDB()
                   navigation.navigate("ChatScreen", {
                     chatId: chat._id,
                     name: item.contactName,
