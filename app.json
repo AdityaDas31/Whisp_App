@@ -1,19 +1,17 @@
 {
   "expo": {
-    "name": "frontend",
-    "slug": "frontend",
+    "name": "Whisp",
+    "slug": "Whisp",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "frontend",
+    "scheme": "Whisp",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
       "infoPlist": {
-        "UIBackgroundModes": [
-          "remote-notification"
-        ]
+        "UIBackgroundModes": ["remote-notification"]
       }
     },
     "android": {
@@ -23,7 +21,10 @@
       },
       "edgeToEdgeEnabled": true,
       "permissions": [
-        "NOTIFICATIONS"
+        "NOTIFICATIONS",
+        "CAMERA",
+        "READ_MEDIA_IMAGES",
+        "READ_MEDIA_VIDEO"
       ]
     },
     "web": {
@@ -53,7 +54,14 @@
       "expo-font",
       "expo-web-browser",
       "expo-build-properties",
-      "expo-sqlite"
+      "expo-sqlite",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Allow access to your photos and videos so you can share media in chat.",
+          "cameraPermission": "Allow camera access so you can take photos to share in chat."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true

@@ -319,18 +319,6 @@ export default function ChatScreen() {
                     isMine ? styles.myWrapper : styles.otherWrapper,
                 ]}
             >
-                {/* <View
-                    style={[
-                        styles.messageBubble,
-                        {
-                            backgroundColor: isMine
-                                ? theme.myMessage
-                                : theme.otherMessage,
-                        },
-                    ]}
-                >
-                    {renderMessageContent(item, isMine)}
-                </View> */}
                 <View
                     style={[
                         styles.messageBubble,
@@ -368,7 +356,7 @@ export default function ChatScreen() {
 
     const openCamera = async () => {
         // Ask permission
-        const { status } = await ImagePicker.requestCameraPermissionsAsync();
+        const { status } = await ImagePicker.requestCameraPermissionsAsync()
         if (status !== "granted") {
             alert("Camera permission is required to use this feature.");
             return;
@@ -376,7 +364,7 @@ export default function ChatScreen() {
 
         // Launch camera
         const result = await ImagePicker.launchCameraAsync({
-            mediaTypes: ImagePicker.MediaTypeOptions.Images,
+            mediaTypes: ['images', 'videos'],
             allowsEditing: true,
             aspect: [4, 3],
             quality: 0.8,
@@ -390,6 +378,24 @@ export default function ChatScreen() {
             // await sendMessage(chatId, { type: "image", uri: result.assets[0].uri });
         }
     };
+
+    const requestGalleryPermission = async () => {
+        const { status, canAskAgain } =
+            await ImagePicker.requestMediaLibraryPermissionsAsync();
+
+        if (status !== "granted") {
+            Alert.alert(
+                "Permission required",
+                "Gallery permission is required to select photos or videos.",
+                canAskAgain
+                    ? [{ text: "OK" }]
+                    : [{ text: "Open Settings", onPress: () => Linking.openSettings() }]
+            );
+            return false;
+        }
+        return true;
+    };
+
 
     const handleAttachmentPress = async (type) => {
         console.log("Selected attachment type:", type);
@@ -443,20 +449,23 @@ export default function ChatScreen() {
         }
 
         if (type === "photos") {
+            const hasPermission = await requestGalleryPermission();
+            if (!hasPermission) return;
+
             const result = await ImagePicker.launchImageLibraryAsync({
-                mediaTypes: ImagePicker.MediaTypeOptions.All,
+                mediaTypes: ['images', 'videos'],
                 allowsEditing: true,
                 quality: 0.8,
             });
 
             if (!result.canceled) {
-                const asset = result.assets[0];
                 setPreviewMedia({
                     uri: result.assets[0].uri,
-                    type: result.assets[0].type, // "image" or "video"
+                    type: result.assets[0].type, // "image" | "video"
                 });
             }
         }
+
 
     };
 
