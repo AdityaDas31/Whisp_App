@@ -71,11 +71,12 @@ function ChatMediaBubble({ uri, type, onPress, time, isMine, status }) {
                             name={
                                 status === "seen"
                                     ? "checkmark-done"
-                                    : "checkmark"
+                                    : status === "delivered"
+                                        ? "checkmark-done"
+                                        : "checkmark"
                             }
                             size={16}
-                            color={status === "seen" ? "#4FC3F7" : "#E0E0E0"}
-                            style={{ marginLeft: 4 }}
+                            color={status === "seen" ? "#0A84FF" : "#999"}
                         />
                     )}
                 </View>
