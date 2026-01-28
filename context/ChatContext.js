@@ -118,7 +118,7 @@ export const ChatProvider = ({ children }) => {
         await loadLocalMessages(chatId);
 
         // 🔥 ADD THIS
-       safeLoadChatsFromLocalDB();
+        safeLoadChatsFromLocalDB();
 
 
         // 3️⃣ Reload from DB
@@ -313,6 +313,10 @@ export const ChatProvider = ({ children }) => {
 
       const msg = res.data.message;
 
+      if (messageData.localUri && msg.type === "media") {
+        msg.localUri = messageData.localUri;
+      }
+
       // save locally first
       await saveMessage(msg, user._id);
 
@@ -376,6 +380,10 @@ export const ChatProvider = ({ children }) => {
         const lastMsg = await getLatestMessageForChat(chat._id);
         if (lastMsg) {
           latestMessage = {
+            _id: lastMsg.id,
+            chatId: lastMsg.chatId,
+            sender: lastMsg.senderId,
+            status: lastMsg.status,
             type: lastMsg.type,
             content: lastMsg.content,
             media: lastMsg.media ? JSON.parse(lastMsg.media) : null,

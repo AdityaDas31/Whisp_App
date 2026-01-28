@@ -61,6 +61,15 @@
           "photosPermission": "Allow access to your photos and videos so you can share media in chat.",
           "cameraPermission": "Allow camera access so you can take photos to share in chat."
         }
+      ],
+      [
+        "expo-media-library",
+        {
+          "photosPermission": "Allow Whisp to save photos to your gallery",
+          "savePhotosPermission": "Allow Whisp to save photos",
+          "isAccessMediaLocationEnabled": true,
+          "audioPermission": "Allow Whisp to access audio files"
+        }
       ]
     ],
     "experiments": {

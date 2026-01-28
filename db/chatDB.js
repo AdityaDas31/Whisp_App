@@ -82,13 +82,33 @@ const getDB = async () => {
 export const saveMessage = async (msg, myUserId) => {
     const db = await getDB();
 
+    const senderId = typeof msg.sender === "object" ? msg.sender._id : msg.sender;
+
+    const isMine = senderId === myUserId;
+
+    // 🔥 MEDIA HANDLING (LOCAL-FIRST)
+    let media = null;
+
+    if (msg.type === "media" && msg.media) {
+        media = {
+            url: msg.media.url,              // Cloudinary (download only)
+            publicId: msg.media.publicId,
+            format: msg.media.format,
+
+            // 👇 KEY LOGIC
+            localUri: isMine ? msg.localUri || null : null,
+        };
+    }
+
     const row = {
         id: msg._id,
         chatId: msg.chatId || msg.chat?._id,
-        senderId: typeof msg.sender === "object" ? msg.sender._id : msg.sender,
+        // senderId: typeof msg.sender === "object" ? msg.sender._id : msg.sender,
+        senderId,
         type: msg.type,
         content: msg.content || null,
-        media: msg.media ? JSON.stringify(msg.media) : null,
+        // media: msg.media ? JSON.stringify(msg.media) : null,
+        media: media ? JSON.stringify(media) : null,
         extra: JSON.stringify({
             location: msg.location,
             poll: msg.poll,
@@ -96,12 +116,7 @@ export const saveMessage = async (msg, myUserId) => {
         }),
         status: msg.status || "sent",
         createdAt: new Date(msg.createdAt).getTime(),
-        isMine:
-            (typeof msg.sender === "object"
-                ? msg.sender._id
-                : msg.sender) === myUserId
-                ? 1
-                : 0,
+        isMine: isMine ? 1 : 0,
     };
 
     await db.runAsync(
@@ -212,6 +227,26 @@ export const markChatMessagesAsSeen = async (chatId) => {
         [chatId]
     );
 };
+
+export const updateMessageLocalUri = async (messageId, localUri) => {
+    const db = await getDB();
+
+    const rows = await db.getAllAsync(
+        `SELECT media FROM messages WHERE id = ?`,
+        [messageId]
+    );
+
+    if (!rows.length || !rows[0].media) return;
+
+    const media = JSON.parse(rows[0].media);
+    media.localUri = localUri;
+
+    await db.runAsync(
+        `UPDATE messages SET media = ? WHERE id = ?`,
+        [JSON.stringify(media), messageId]
+    );
+};
+
 
 
 

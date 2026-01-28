@@ -7,7 +7,9 @@ import {
     TextInput,
     TouchableOpacity,
     StyleSheet,
+    Platform,
 } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 
 export default function PollModal({
     visible,
@@ -20,49 +22,164 @@ export default function PollModal({
     submitPoll,
 }) {
     return (
-        <Modal visible={visible} animationType="slide" transparent>
-            <TouchableOpacity style={styles.modalOverlay} onPress={onClose} />
+        <Modal visible={visible} transparent animationType="slide">
+            <View style={styles.overlay}>
+                <View style={styles.sheet}>
+                    {/* HEADER */}
+                    <View style={styles.header}>
+                        <Text style={styles.title}>Create Poll</Text>
+                        <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
+                            <Ionicons name="close" size={22} color="#111" />
+                        </TouchableOpacity>
+                    </View>
 
-            <View style={styles.pollModal}>
-                <Text style={styles.title}>Create Poll</Text>
-
-                {/* Poll Topic */}
-                <TextInput
-                    placeholder="Poll Topic"
-                    value={pollTopic}
-                    onChangeText={setPollTopic}
-                    style={styles.pollInput}
-                />
-
-                {/* Poll Options */}
-                {pollOptions.map((opt, idx) => (
+                    {/* POLL QUESTION */}
                     <TextInput
-                        key={idx}
-                        placeholder={`Option ${idx + 1}`}
-                        value={opt}
-                        onChangeText={(text) => updatePollOption(idx, text)}
-                        style={styles.pollInput}
+                        placeholder="Ask a question"
+                        value={pollTopic}
+                        onChangeText={setPollTopic}
+                        placeholderTextColor="#999"
+                        style={styles.questionInput}
                     />
-                ))}
 
-                {/* Add Option */}
-                <TouchableOpacity onPress={addPollOption} style={styles.addOptionBtn}>
-                    <Text style={styles.addOptionText}>+ Add Option</Text>
-                </TouchableOpacity>
+                    {/* OPTIONS */}
+                    {pollOptions.map((opt, idx) => (
+                        <View key={idx} style={styles.optionRow}>
+                            <View style={styles.optionDot} />
+                            <TextInput
+                                placeholder={`Option ${idx + 1}`}
+                                value={opt}
+                                onChangeText={(text) =>
+                                    updatePollOption(idx, text)
+                                }
+                                placeholderTextColor="#999"
+                                style={styles.optionInput}
+                            />
+                        </View>
+                    ))}
 
-                {/* Submit Poll */}
-                <TouchableOpacity onPress={submitPoll} style={styles.submitPollBtn}>
-                    <Text style={styles.submitPollText}>Send Poll</Text>
-                </TouchableOpacity>
+                    {/* ADD OPTION */}
+                    <TouchableOpacity
+                        onPress={addPollOption}
+                        style={styles.addOptionBtn}
+                    >
+                        <Ionicons
+                            name="add-circle-outline"
+                            size={20}
+                            color="#0A84FF"
+                        />
+                        <Text style={styles.addOptionText}>Add option</Text>
+                    </TouchableOpacity>
+
+                    {/* SEND BUTTON */}
+                    <TouchableOpacity
+                        style={styles.sendBtn}
+                        onPress={submitPoll}
+                    >
+                        <Ionicons name="send" size={20} color="#fff" />
+                        <Text style={styles.sendText}>Send</Text>
+                    </TouchableOpacity>
+                </View>
             </View>
         </Modal>
     );
 }
 
 const styles = StyleSheet.create({
-    modalOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.4)", justifyContent: "center", alignItems: "center" },
-    pollModal: { position: "absolute", bottom: 0, width: "100%", backgroundColor: "#fff", padding: 16, borderTopLeftRadius: 16, borderTopRightRadius: 16, },
-    pollInput: { borderWidth: 1, borderColor: "#ccc", borderRadius: 8, padding: 10, marginVertical: 6, },
-    addOptionBtn: { marginVertical: 6, },
-    submitPollBtn: { backgroundColor: "#0A84FF", padding: 12, borderRadius: 8, alignItems: "center", marginTop: 10 },
+    overlay: {
+        flex: 1,
+        backgroundColor: "rgba(0,0,0,0.35)",
+        justifyContent: "flex-end",
+    },
+
+    sheet: {
+        backgroundColor: "#fff",
+        padding: 16,
+        borderTopLeftRadius: 20,
+        borderTopRightRadius: 20,
+        paddingBottom: Platform.OS === "ios" ? 32 : 20,
+    },
+
+    header: {
+        flexDirection: "row",
+        justifyContent: "space-between",
+        alignItems: "center",
+        marginBottom: 12,
+    },
+
+    title: {
+        fontSize: 18,
+        fontWeight: "600",
+        color: "#111",
+    },
+
+    closeBtn: {
+        width: 36,
+        height: 36,
+        borderRadius: 18,
+        justifyContent: "center",
+        alignItems: "center",
+    },
+
+    questionInput: {
+        fontSize: 16,
+        paddingVertical: 12,
+        borderBottomWidth: 1,
+        borderColor: "#E0E0E0",
+        marginBottom: 16,
+        color: "#111",
+    },
+
+    optionRow: {
+        flexDirection: "row",
+        alignItems: "center",
+        marginVertical: 8,
+    },
+
+    optionDot: {
+        width: 10,
+        height: 10,
+        borderRadius: 5,
+        backgroundColor: "#0A84FF",
+        marginRight: 12,
+    },
+
+    optionInput: {
+        flex: 1,
+        fontSize: 15,
+        paddingVertical: 8,
+        borderBottomWidth: 1,
+        borderColor: "#EEE",
+        color: "#111",
+    },
+
+    addOptionBtn: {
+        flexDirection: "row",
+        alignItems: "center",
+        marginTop: 14,
+    },
+
+    addOptionText: {
+        marginLeft: 6,
+        color: "#0A84FF",
+        fontSize: 15,
+        fontWeight: "500",
+    },
+
+    sendBtn: {
+        marginTop: 24,
+        backgroundColor: "#0A84FF",
+        paddingVertical: 12,
+        borderRadius: 12,
+        flexDirection: "row",
+        justifyContent: "center",
+        alignItems: "center",
+    },
+
+    sendText: {
+        color: "#fff",
+        fontSize: 16,
+        fontWeight: "600",
+        marginLeft: 8,
+    },
 });

@@ -1,47 +1,59 @@
+
 import { useRoute } from "@react-navigation/native";
-import { useEffect, useRef, useState, useMemo } from "react";
+import { useEffect, useRef, useState } from "react";
+
+import * as Contacts from "expo-contacts";
+import * as FileSystem from "expo-file-system/legacy";
+import * as Haptics from "expo-haptics";
+import * as ImagePicker from "expo-image-picker";
+import * as Location from "expo-location";
+import * as MediaLibrary from "expo-media-library";
+import { VideoView, useVideoPlayer } from "expo-video";
+
+import { Entypo, Ionicons } from "@expo/vector-icons";
 import {
+    ActivityIndicator,
+    Alert,
+    Animated,
     Image,
-    Modal,
+    Keyboard,
+    Linking,
     Platform,
+    Pressable,
+    ScrollView,
+    StatusBar,
     StyleSheet,
     Text,
     TextInput,
     TouchableOpacity,
     View,
-    Keyboard,
-    ScrollView,
-    FlatList,
-    Linking,
-    Pressable,
-    StatusBar,
-    ActivityIndicator,
-    Animated
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
-import { Ionicons, Entypo } from "@expo/vector-icons";
 import { KeyboardAwareFlatList } from "react-native-keyboard-aware-scroll-view";
+import { SafeAreaView } from "react-native-safe-area-context";
+
 import { useAuth } from "../context/AuthContext";
 import { useChats } from "../context/ChatContext";
-import * as Haptics from "expo-haptics";
-import * as ImagePicker from "expo-image-picker";
-import * as Location from "expo-location";
-import * as Contacts from "expo-contacts";
 import { useChatTheme } from "../context/ChatThemeContext";
-import { VideoView, useVideoPlayer } from "expo-video";
-import * as FileSystem from 'expo-file-system';
-import * as MediaLibrary from 'expo-media-library';
-import { Alert } from 'react-native';
-import ProfileModal from "../components/ProfileModal";
+
 import AttachModal from "../components/AttachModal";
 import ContactsModal from "../components/ContactsModal";
+import MediaPreviewModal from "../components/MediaPreviewModal";
+import MediaViewerModal from "../components/MediaViewerModal";
 import PollModal from "../components/PollModal";
-import { atan2, chain, derivative, e, evaluate, log, pi, pow, round, sqrt } from 'mathjs'
+import ProfileModal from "../components/ProfileModal";
+import ChatMediaBubble from "../components/ChatMediaBubble";
 
+import { evaluate } from "mathjs";
+import { updateMessageLocalUri } from "../db/chatDB";
 
-
-
-const emojis = ["😀", "😃", "😄", "😁", "😆", "🥹", "😅", "😂", "🤣", "🥲", "☺", "😊", "😇", "🙂", "🙃", "😉", "😌", "😍", "🥰", "😘", "😗", "😙", "😚", "😋", "😛", "😝", "😜", "🤪", "🤨", "🧐", "🤓", "😎", "🥸", "🤩", "🥳", "😏", "😒", "😞", "😔", "😟", "😕", "🙁", "☹", "😣", "😖", "😫", "😩", "🥺", "😢", "😭", "😤", "😠", "😡", "🤬", "🤯", "😳", "🥵", "🥶", "😶‍🌫️", "😱", "😨", "😰", "😥", "😓", "🤗", "🤔", "🫣", "🤭", "🫢", "🫡", "🤫", "🫠", "🤥", "😶", "🫥", "😐", "🫤", "😑", "🫨"];
+// Small helper data and constants
+const emojis = [
+    "😀", "😃", "😄", "😁", "😆", "🥹", "😅", "😂", "🤣", "🥲", "☺", "😊", "😇", "🙂", "🙃",
+    "😉", "😌", "😍", "🥰", "😘", "😗", "😙", "😚", "😋", "😛", "😝", "😜", "🤪", "🤨", "🧐",
+    "🤓", "😎", "🥸", "🤩", "🥳", "😏", "😒", "😞", "😔", "😟", "😕", "🙁", "☹", "😣", "😖",
+    "😫", "😩", "🥺", "😢", "😭", "😤", "😠", "😡", "🤬", "🤯", "😳", "🥵", "🥶", "😶‍🌫️",
+    "😱", "😨", "😰", "😥", "😓", "🤗", "🤔",
+];
 
 const attachmentOptions = [
     { name: "Location", icon: "location-sharp", type: "location" },
@@ -52,29 +64,48 @@ const attachmentOptions = [
     { name: "Poll", icon: "bar-chart-outline", type: "poll" },
 ];
 
+// Local video player used for video thumbnails
 const VideoMessage = ({ uri }) => {
-    const player = useVideoPlayer(
-        { uri }, // must be wrapped in an object
-        (player) => {
-            player.loop = false;
-            // player.play(); // autoplay for testing
-            player.shouldPlay = false;
-        }
-    );
+    const player = useVideoPlayer({ uri }, (p) => {
+        p.loop = false;
+        p.shouldPlay = false;
+    });
 
     return (
         <VideoView
             style={{ width: 250, height: 200, borderRadius: 10 }}
             player={player}
             nativeControls={false}
-            allowsFullscreen
+            fullscreenOptions={{ enabled: true }}
         />
-
     );
 };
+
+// Preview shown for remote media that hasn't been downloaded locally
+const BlurredMediaPreview = ({ thumbnailUri, progress, onDownload }) => (
+    <Pressable onPress={onDownload} style={styles.blurredPreview}>
+        <Image source={{ uri: thumbnailUri }} style={styles.blurredImage} blurRadius={20} />
+        <View style={styles.blurredOverlay} />
+
+        {progress > 0 ? (
+            <>
+                <ActivityIndicator color="#fff" />
+                <Text style={styles.progressText}>{progress}%</Text>
+            </>
+        ) : (
+            <>
+                <Ionicons name="download-outline" size={42} color="#fff" />
+                <Text style={styles.downloadText}>Download</Text>
+            </>
+        )}
+    </Pressable>
+);
+
+
+
 export default function ChatScreen() {
     const route = useRoute();
-    const { chatId, name, profileImage, userId } = route.params;
+    const { chatId, name, profileImage, userId, myId } = route.params;
     const { user } = useAuth();
     const { sendMessage, messages, joinChat, userStatus, socket, leaveChat, fetchChats, loadLocalMessages } = useChats();
 
@@ -100,11 +131,25 @@ export default function ChatScreen() {
     const [mode, setMode] = useState(null);
     const popupAnim = useRef(new Animated.Value(0)).current;
 
+    const [selectedMessages, setSelectedMessages] = useState([]);
+    const isSelectionMode = selectedMessages.length > 0;
+
+    const [downloadProgress, setDownloadProgress] = useState({});
+
+    const [showViewerControls, setShowViewerControls] = useState(true);
+    const controlsTimeoutRef = useRef(null);
+    const [showPreviewControls, setShowPreviewControls] = useState(true);
+
+
+
+
+
+
     const fullscreenPlayer = useVideoPlayer(
         fullscreenMedia?.type === "video" ? fullscreenMedia.uri : null,
         (player) => {
             player.loop = false;
-            player.play() // autoplay) when modal opens
+            player.play(); // autoplay when modal opens
         }
     );
 
@@ -114,17 +159,16 @@ export default function ChatScreen() {
 
     const { theme } = useChatTheme();
 
+    // Return true when a hex color is visually light
     const isColorLight = (color) => {
         if (!color) return false;
-        // remove # and parse
         const c = color.substring(1);
         const rgb = parseInt(c, 16);
         const r = (rgb >> 16) & 0xff;
         const g = (rgb >> 8) & 0xff;
         const b = rgb & 0xff;
-        // luminance check
         const luminance = 0.299 * r + 0.587 * g + 0.114 * b;
-        return luminance > 186; // threshold
+        return luminance > 186;
     };
 
     // Keyboard listeners
@@ -163,7 +207,6 @@ export default function ChatScreen() {
 
 
 
-
     const handleSend = async () => {
         if (!text.trim()) return;
         const ok = await sendMessage(chatId, { type: "text", content: text.trim() });
@@ -185,12 +228,27 @@ export default function ChatScreen() {
 
     const chatMessages = messages[chatId] || [];
 
+    const formatMessageTime = (date) => {
+        if (!date) return "";
+
+        return new Date(date).toLocaleTimeString([], {
+            hour: "2-digit",
+            minute: "2-digit",
+        });
+    };
 
     const renderItem = ({ item }) => {
         const senderId = typeof item.sender === "object" ? item.sender._id : item.sender;
         const isMine = senderId === user._id;
+        const isMedia = item.type === "media" && (item.media?.format === "image" || item.media?.format === "video");
+        const isRichContent =
+            item.type === "media" ||
+            item.type === "location" ||
+            item.type === "contact" ||
+            item.type === "poll";
 
-        // ✅ function to render message body based on type
+
+        // Render message body based on message.type
         const renderMessageContent = (message, isMine) => {
             const textColor = isMine ? theme.myTextColor : theme.otherTextColor;
 
@@ -206,39 +264,71 @@ export default function ChatScreen() {
                     return (
                         <TouchableOpacity
                             style={styles.locationCard}
+                            activeOpacity={0.85}
                             onPress={() => Linking.openURL(message.location?.link)}
                         >
-                            <View style={styles.cardHeader}>
-                                <Ionicons name="location" size={20} color="#d9534f" />
-                                <Text style={[styles.cardTitle, { color: textColor }]}>
-                                    Shared Location
+                            <View style={styles.locationHeader}>
+                                <View style={styles.locationIconWrap}>
+                                    <Ionicons name="location" size={18} color="#fff" />
+                                </View>
+
+                                <View style={{ flex: 1 }}>
+                                    <Text style={[styles.locationTitle, { color: textColor }]}>
+                                        Shared location
+                                    </Text>
+                                    <Text
+                                        style={[styles.locationSubtitle, { color: textColor }]}
+                                        numberOfLines={1}
+                                    >
+                                        Tap to view on map
+                                    </Text>
+                                </View>
+                            </View>
+
+                            <View style={styles.locationFooter}>
+                                <Ionicons name="map-outline" size={14} color="#0A84FF" />
+                                <Text
+                                    style={styles.locationLink}
+                                    numberOfLines={1}
+                                >
+                                    {message.location?.link}
                                 </Text>
                             </View>
-                            <Text
-                                style={[styles.cardSubtitle, { color: textColor }]}
-                                numberOfLines={1}
-                            >
-                                {message.location?.link}
-                            </Text>
                         </TouchableOpacity>
                     );
 
                 case "contact":
                     return (
                         <View style={styles.contactCard}>
-                            <View style={styles.cardHeader}>
-                                <Ionicons name="person-circle" size={36} color="#4CAF50" />
-                                <View style={{ marginLeft: 8, alignItems: "flex-start" }}>
-                                    <Text style={[styles.cardTitle, { color: textColor }]}>
+                            {/* Header */}
+                            <View style={styles.contactHeader}>
+                                <View style={styles.contactAvatar}>
+                                    <Ionicons name="person" size={20} color="#fff" />
+                                </View>
+
+                                <View style={styles.contactInfo}>
+                                    <Text
+                                        style={[styles.contactName, { color: textColor }]}
+                                        numberOfLines={1}
+                                    >
                                         {message.contact?.name}
                                     </Text>
-                                    <Text style={[styles.cardSubtitle, { color: textColor }]}>
+                                    <Text
+                                        style={[styles.contactNumber, { color: textColor }]}
+                                        numberOfLines={1}
+                                    >
                                         {message.contact?.phoneNumber}
                                     </Text>
                                 </View>
                             </View>
-                            <TouchableOpacity style={styles.contactAction}>
-                                <Text style={styles.contactActionText}>Add Contact</Text>
+
+                            {/* Action */}
+                            <TouchableOpacity
+                                style={styles.contactAction}
+                                activeOpacity={0.85}
+                            >
+                                <Ionicons name="person-add-outline" size={16} color="#0A84FF" />
+                                <Text style={styles.contactActionText}>Add to contacts</Text>
                             </TouchableOpacity>
                         </View>
                     );
@@ -246,63 +336,111 @@ export default function ChatScreen() {
                 case "poll":
                     return (
                         <View style={styles.pollCard}>
-                            <Text style={[styles.cardTitle, { color: textColor }]}>
+                            {/* Header */}
+                            <Text style={[styles.pollTitle, { color: textColor }]}>
                                 {message.poll?.topic}
                             </Text>
-                            <Text style={[styles.pollHint, { color: textColor }]}>
-                                Select one or more
+
+                            <Text style={styles.pollHint}>
+                                Select one option
                             </Text>
 
-                            {message.poll?.options?.map((opt, i) => (
-                                <Pressable
-                                    key={i}
-                                    style={styles.pollOption}
-                                    onPress={() => setSelected(i)}
-                                >
-                                    <View style={styles.radioOuter}>
-                                        {selected === i && <View style={styles.radioInner} />}
-                                    </View>
-                                    <Text style={[styles.pollOptionText, { color: textColor }]}>
-                                        {opt}
-                                    </Text>
-                                </Pressable>
-                            ))}
+                            {/* Options */}
+                            {message.poll?.options?.map((opt, i) => {
+                                // 🔹 STATIC vote percentage for now
+                                const progress = [65, 25, 10][i] || 0;
+                                const isSelected = selected === i;
+
+                                return (
+                                    <Pressable
+                                        key={i}
+                                        onPress={() => setSelected(i)}
+                                        style={[
+                                            styles.pollOption,
+                                            isSelected && styles.pollOptionSelected,
+                                        ]}
+                                    >
+                                        {/* Progress Bar */}
+                                        <View style={styles.pollProgressBackground}>
+                                            <View
+                                                style={[
+                                                    styles.pollProgressFill,
+                                                    { width: `${progress}%` },
+                                                ]}
+                                            />
+                                        </View>
+
+                                        {/* Content */}
+                                        <View style={styles.pollOptionContent}>
+                                            <View style={styles.radioOuter}>
+                                                {isSelected && <View style={styles.radioInner} />}
+                                            </View>
+
+                                            <Text
+                                                style={[
+                                                    styles.pollOptionText,
+                                                    { color: textColor },
+                                                ]}
+                                                numberOfLines={1}
+                                            >
+                                                {opt}
+                                            </Text>
+
+                                            <Text style={styles.pollPercent}>
+                                                {progress}%
+                                            </Text>
+                                        </View>
+                                    </Pressable>
+                                );
+                            })}
 
                             <View style={styles.pollDivider} />
-                            <Text style={[styles.pollFooter, { color: textColor }]}>
+
+                            <Text style={styles.pollFooter}>
                                 View votes
                             </Text>
                         </View>
                     );
-                case "media":
-                    if (message.media?.format === "image" || message.media?.format === "video") {
+
+                case "media": {
+                    const localUri = message.media?.localUri;
+                    const format = message.media?.format;
+                    const isVideo = format === "video";
+
+                    if (!localUri) {
                         return (
-                            <TouchableOpacity
-                                onPress={() =>
-                                    setFullscreenMedia({
+                            <BlurredMediaPreview
+                                thumbnailUri={message.media.url}
+                                progress={downloadProgress[message._id] || 0}
+                                onDownload={() =>
+                                    downloadMediaToWhisp({
                                         uri: message.media.url,
-                                        type: message.media.format,
+                                        type: isVideo ? "video" : "image",
+                                        messageId: message._id,
                                     })
                                 }
-                            >
-                                {message.media.format === "image" ? (
-                                    <Image
-                                        source={{ uri: message.media.url }}
-                                        style={{ width: 200, height: 200, borderRadius: 10 }}
-                                    />
-                                ) : (
-                                    <VideoMessage uri={message.media.url} />
-                                )}
-                            </TouchableOpacity>
+                            />
                         );
                     }
 
                     return (
-                        <TouchableOpacity onPress={() => Linking.openURL(message.media?.url)}>
-                            <Text style={{ color: "blue" }}>Download File</Text>
-                        </TouchableOpacity>
-                    );
+                        <ChatMediaBubble
+                            uri={localUri}
+                            type={format}
+                            isMine={isMine}
+                            time={formatMessageTime(item.createdAt)}
+                            status={item.status}
+                            onPress={() =>
+                                setFullscreenMedia({
+                                    message: item,
+                                    uri: localUri,
+                                    type: format,
+                                })
+                            }
+                        />
 
+                    );
+                }
 
                 default:
                     return (
@@ -319,49 +457,91 @@ export default function ChatScreen() {
                     isMine ? styles.myWrapper : styles.otherWrapper,
                 ]}
             >
-                <View
+                <Pressable
+                    onLongPress={() => {
+                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+
+                        setSelectedMessages((prev) => {
+                            if (prev.includes(item._id)) return prev;
+                            return [...prev, item._id];
+                        });
+                    }}
+                    onPress={() => {
+                        if (!isSelectionMode) return;
+
+                        setSelectedMessages((prev) =>
+                            prev.includes(item._id)
+                                ? prev.filter((id) => id !== item._id)
+                                : [...prev, item._id]
+                        );
+                    }}
                     style={[
                         styles.messageBubble,
                         {
-                            backgroundColor: isMine
-                                ? theme.myMessage
-                                : theme.otherMessage,
+                            backgroundColor: selectedMessages.includes(item._id)
+                                ? "rgba(10,132,255,0.15)"
+                                : isMine
+                                    ? theme.myMessage
+                                    : theme.otherMessage,
+                            paddingVertical: isRichContent ? 5 : 10,
+                            paddingHorizontal: isRichContent ? 5 : 14,
+
                         },
                     ]}
                 >
+
                     {renderMessageContent(item, isMine)}
+                    {!isMedia && (
+                    
+                    <View
+                        style={{
+                            flexDirection: "row",
+                            justifyContent: "flex-end",
+                            marginTop: 4,
+                        }}
+                    >
+                        <Text
+                            style={{
+                                fontSize: 11,
+                                color: isMine ? "#000" : "#777",
+                                marginRight: isMine ? 4 : 0,
+                            }}
+                        >
+                            {formatMessageTime(item.createdAt)}
+                        </Text>
 
-                    {isMine && (
-                        <View style={{ alignSelf: "flex-end", marginTop: 4 }}>
-                            <Ionicons
-                                name={
-                                    item.status === "seen"
-                                        ? "checkmark-done"
-                                        : item.status === "delivered"
+                        {isMine && (
+                            <View style={{ alignSelf: "flex-end", marginTop: 4 }}>
+                                <Ionicons
+                                    name={
+                                        item.status === "seen"
                                             ? "checkmark-done"
-                                            : "checkmark"
-                                }
-                                size={16}
-                                color={item.status === "seen" ? "#0A84FF" : "#999"}
-                            />
-                        </View>
+                                            : item.status === "delivered"
+                                                ? "checkmark-done"
+                                                : "checkmark"
+                                    }
+                                    size={16}
+                                    color={item.status === "seen" ? "#0A84FF" : "#999"}
+                                />
+                            </View>
+                        )}
+                    </View>
                     )}
-                </View>
+                </Pressable>
 
-            </View>
+            </View >
         );
 
 
     };
 
     const openCamera = async () => {
-        // Ask permission
+        // Request camera permission
         const { status } = await ImagePicker.requestCameraPermissionsAsync()
         if (status !== "granted") {
             alert("Camera permission is required to use this feature.");
             return;
         }
-
         // Launch camera
         const result = await ImagePicker.launchCameraAsync({
             mediaTypes: ['images', 'videos'],
@@ -371,11 +551,7 @@ export default function ChatScreen() {
         });
 
         if (!result.canceled) {
-            // result.assets[0].uri -> the image URI
             console.log("Captured Image URI:", result.assets[0].uri);
-
-            // 🔥 send image message here
-            // await sendMessage(chatId, { type: "image", uri: result.assets[0].uri });
         }
     };
 
@@ -406,7 +582,6 @@ export default function ChatScreen() {
 
             const location = await Location.getCurrentPositionAsync({});
             console.log("My Location:", location.coords);
-            // sendMessage(chatId, `Location: ${location.coords.latitude}, ${location.coords.longitude}`);
             await sendMessage(chatId, {
                 type: "location",
                 location: {
@@ -437,7 +612,7 @@ export default function ChatScreen() {
             if (data.length > 0) {
                 setContactsList(data);
                 setShowContactsModal(true);
-                console.log("Modal should open now ✅");
+                console.log("Modal should open now");
             } else {
                 alert("No contacts found on device!");
             }
@@ -445,7 +620,8 @@ export default function ChatScreen() {
 
 
         if (type === "poll") {
-            setShowPollModal(true); // Open poll modal (frontend only)
+            // Open poll modal
+            setShowPollModal(true);
         }
 
         if (type === "photos") {
@@ -459,10 +635,7 @@ export default function ChatScreen() {
             });
 
             if (!result.canceled) {
-                setPreviewMedia({
-                    uri: result.assets[0].uri,
-                    type: result.assets[0].type, // "image" | "video"
-                });
+                setPreviewMedia({ uri: result.assets[0].uri, type: result.assets[0].type });
             }
         }
 
@@ -487,7 +660,6 @@ export default function ChatScreen() {
     const submitPoll = async () => {
         console.log("Poll:", { pollTopic, pollOptions });
         setShowPollModal(false);
-        // sendMessage(chatId, JSON.stringify({ pollTopic, pollOptions })) <-- optional later
         await sendMessage(chatId, {
             type: "poll",
             poll: { topic: pollTopic, options: pollOptions },
@@ -495,7 +667,7 @@ export default function ChatScreen() {
     };
 
 
-    // Filter contacts dynamically
+    // Filter contacts by search query
     const filteredContacts = contactsList.filter(
         (c) =>
             c.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -515,52 +687,20 @@ export default function ChatScreen() {
     };
 
 
-    const downloadMedia = async (uri) => {
-        try {
-            // Request permission
-            const { status } = await MediaLibrary.requestPermissionsAsync();
-            if (status !== 'granted') {
-                Alert.alert("Permission denied", "Cannot save media without permission.");
-                return;
-            }
 
-            // Generate local file path
-            const fileUri = FileSystem.cacheDirectory + uri.split('/').pop();
 
-            // Download file to cache
-            const downloaded = await FileSystem.downloadAsync(uri, fileUri);
-
-            // Save to media library
-            const asset = await MediaLibrary.createAssetAsync(downloaded.uri);
-
-            // Create or get album named "Whisp"
-            const albumName = "Whisp";
-            let album = await MediaLibrary.getAlbumAsync(albumName);
-            if (!album) {
-                album = await MediaLibrary.createAlbumAsync(albumName, asset, false);
-            } else {
-                await MediaLibrary.addAssetsToAlbumAsync([asset], album, false);
-            }
-
-            Alert.alert("Success", `Media saved to ${albumName} folder!`);
-        } catch (error) {
-            console.log("Download error:", error);
-            Alert.alert("Error", "Failed to save media.");
-        }
-    };
 
     const checkExpression = (value) => {
-        // 1️⃣ Check arithmetic expression (only if text looks like a math formula)
+        // Check whether the input is a math expression or contains multiple numbers
         try {
             if (/^[\d\s()+\-*/.]+$/.test(value.trim())) {
-                evaluate(value); // test if it's valid math
+                evaluate(value); // validate expression
                 setCurrentExpr(value.trim());
                 setMode("arithmetic");
                 return true;
             }
         } catch { }
-
-        // 2️⃣ Check multiple numbers in text
+        // Check whether text contains multiple separate numbers
         const numbers = value.match(/\b\d+\b/g);
         if (numbers && numbers.length >= 2) {
             setCurrentExpr(value.trim());
@@ -611,10 +751,107 @@ export default function ChatScreen() {
     };
 
 
+    const downloadMediaToWhisp = async ({ uri, type, messageId }) => {
+        try {
+            const ext = type === "video" ? "mp4" : "jpg";
+            const tempUri =
+                FileSystem.cacheDirectory + `whisp_${Date.now()}.${ext}`;
+
+            setDownloadProgress((p) => ({ ...p, [messageId]: 1 }));
+
+            const downloadResumable = FileSystem.createDownloadResumable(
+                uri,
+                tempUri,
+                {},
+                (progress) => {
+                    const percent = Math.round(
+                        (progress.totalBytesWritten /
+                            progress.totalBytesExpectedToWrite) *
+                        100
+                    );
+
+                    setDownloadProgress((p) => ({
+                        ...p,
+                        [messageId]: percent,
+                    }));
+                }
+            );
+
+            const { uri: downloadedUri } =
+                await downloadResumable.downloadAsync();
+
+            const asset = await MediaLibrary.createAssetAsync(downloadedUri);
+
+            await updateMessageLocalUri(messageId, asset.uri);
+            loadLocalMessages(chatId);
+
+            setDownloadProgress((p) => {
+                const copy = { ...p };
+                delete copy[messageId];
+                return copy;
+            });
+
+            Alert.alert("Downloaded ✅", "Saved to gallery");
+        } catch (e) {
+            console.log("Download error:", e);
+            setDownloadProgress((p) => {
+                const copy = { ...p };
+                delete copy[messageId];
+                return copy;
+            });
+            Alert.alert("Error", "Failed to download media");
+        }
+    };
+
+
+
+    const showControlsTemporarily = () => {
+        setShowViewerControls(true);
+
+        if (controlsTimeoutRef.current) {
+            clearTimeout(controlsTimeoutRef.current);
+        }
+
+        controlsTimeoutRef.current = setTimeout(() => {
+            setShowViewerControls(false);
+        }, 2000);
+    };
+
+    useEffect(() => {
+        if (fullscreenMedia) {
+            showControlsTemporarily();
+        }
+        return () => {
+            if (controlsTimeoutRef.current) {
+                clearTimeout(controlsTimeoutRef.current);
+            }
+        };
+    }, [fullscreenMedia]);
+
+
+    // Fullscreen viewer derived data
+    const fullscreenMsg = fullscreenMedia?.message;
+
+    const fullscreenSenderLabel = fullscreenMsg
+        ? fullscreenMsg.sender === myId
+            ? "You"
+            : name
+        : "";
+
+    const fullscreenTimeLabel = fullscreenMsg?.createdAt
+        ? new Date(fullscreenMsg.createdAt).toLocaleString([], {
+            day: "2-digit",
+            month: "short",
+            hour: "2-digit",
+            minute: "2-digit",
+        })
+        : "";
+
+
     return (
         <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.backgroundColor }]} edges={["top"]}>
             <StatusBar
-                backgroundColor={theme.backgroundColor} // ✅ same as SafeAreaProvider
+                backgroundColor={theme.backgroundColor}
                 barStyle={isColorLight(theme.textColor) ? "light-content" : "dark-content"}
             />
             {theme.wallpaper && (
@@ -625,47 +862,76 @@ export default function ChatScreen() {
                 />
             )}
             {/* Header */}
-            <View style={[styles.header, { backgroundColor: theme.backgroundColor }]}>
-                <TouchableOpacity style={styles.headerLeft} onPress={() => setProfileVisible(true)}>
-                    <Image source={{ uri: profileImage }} style={styles.headerImage} />
 
-                    {/* Name + Status stacked vertically */}
-                    <View style={{ flexDirection: "column" }}>
-                        <Text style={[styles.headerName, { color: theme.textColor }]}>{name}</Text>
+            {isSelectionMode ? (
+                /* 🔥 Selection Header */
+                <View style={styles.header}>
+                    {/* LEFT */}
+                    <TouchableOpacity
+                        onPress={() => setSelectedMessages([])}
+                        style={{ padding: 8 }}
+                    >
+                        <Ionicons name="arrow-back" size={24} color="#0A84FF" />
+                    </TouchableOpacity>
 
-                        <View style={{ flexDirection: "row", alignItems: "center", marginTop: 2 }}>
-                            {userStatus[userId]?.online ? (
-                                <>
-                                    {/* 🟢 Green dot with glow */}
-                                    <View style={styles.onlineDot} />
+                    {/* CENTER (optional count) */}
+                    <Text style={{ fontSize: 18, fontWeight: "600" }}>
+                        {selectedMessages.length}
+                    </Text>
 
-                                    {/* Online text */}
-                                    <Text style={styles.onlineText}>Online</Text>
-                                </>
-                            ) : userStatus[userId]?.lastSeen ? (
-                                <Text style={styles.lastSeenText}>
-                                    {`Last seen ${new Date(userStatus[userId].lastSeen).toLocaleTimeString([], {
-                                        hour: "2-digit",
-                                        minute: "2-digit",
-                                    })}`}
-                                </Text>
-                            ) : null}
-                        </View>
-
-
+                    {/* RIGHT */}
+                    <View style={{ flexDirection: "row", alignItems: "center" }}>
+                        <Ionicons name="arrow-undo-outline" size={22} style={styles.headerIcon} />
+                        <Ionicons name="arrow-redo-outline" size={22} style={styles.headerIcon} />
+                        <Ionicons name="star-outline" size={22} style={styles.headerIcon} />
+                        <Ionicons name="information-circle-outline" size={22} style={styles.headerIcon} />
+                        <Ionicons name="trash-outline" size={22} style={styles.headerIcon} />
+                        <Ionicons name="ellipsis-vertical" size={22} style={styles.headerIcon} />
                     </View>
-                </TouchableOpacity>
-
-                <View style={styles.headerIcons}>
-                    <TouchableOpacity style={styles.iconButton}>
-                        <Ionicons name="call-outline" size={22} color="#0A84FF" />
-                    </TouchableOpacity>
-                    <TouchableOpacity style={styles.iconButton}>
-                        <Ionicons name="videocam-outline" size={24} color="#0A84FF" />
-                    </TouchableOpacity>
                 </View>
-            </View>
+            ) : (
+                /* ✅ Normal Chat Header */
+                <View style={[styles.header, { backgroundColor: theme.backgroundColor }]}>
+                    <TouchableOpacity style={styles.headerLeft} onPress={() => setProfileVisible(true)}>
+                        <Image source={{ uri: profileImage }} style={styles.headerImage} />
 
+                        {/* Name + Status stacked vertically */}
+                        <View style={{ flexDirection: "column" }}>
+                            <Text style={[styles.headerName, { color: theme.textColor }]}>{name}</Text>
+
+                            <View style={{ flexDirection: "row", alignItems: "center", marginTop: 2 }}>
+                                {userStatus[userId]?.online ? (
+                                    <>
+                                        {/* 🟢 Green dot with glow */}
+                                        <View style={styles.onlineDot} />
+
+                                        {/* Online text */}
+                                        <Text style={styles.onlineText}>Online</Text>
+                                    </>
+                                ) : userStatus[userId]?.lastSeen ? (
+                                    <Text style={styles.lastSeenText}>
+                                        {`Last seen ${new Date(userStatus[userId].lastSeen).toLocaleTimeString([], {
+                                            hour: "2-digit",
+                                            minute: "2-digit",
+                                        })}`}
+                                    </Text>
+                                ) : null}
+                            </View>
+
+
+                        </View>
+                    </TouchableOpacity>
+
+                    <View style={styles.headerIcons}>
+                        <TouchableOpacity style={styles.iconButton}>
+                            <Ionicons name="call-outline" size={22} color="#0A84FF" />
+                        </TouchableOpacity>
+                        <TouchableOpacity style={styles.iconButton}>
+                            <Ionicons name="videocam-outline" size={24} color="#0A84FF" />
+                        </TouchableOpacity>
+                    </View>
+                </View>
+            )}
 
             {/* Messages + Input */}
             <View style={{ flex: 1, }}>
@@ -676,7 +942,8 @@ export default function ChatScreen() {
                     renderItem={renderItem}
                     onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: true })}
                     onLayout={() => flatListRef.current?.scrollToEnd({ animated: false })}
-                    contentContainerStyle={{ paddingVertical: 8, flexGrow: 1 }}
+
+                    contentContainerStyle={{ paddingVertical: 8, justifyContent: "flex-end" }}
                     extraScrollHeight={10}
                     enableOnAndroid
                     keyboardShouldPersistTaps="handled"
@@ -686,6 +953,7 @@ export default function ChatScreen() {
                 {/* <View style={[styles.inputContainer, { marginBottom: keyboardHeight, backgroundColor: theme.backgroundColor }]}></View> */}
                 <View style={[styles.inputContainer, { backgroundColor: theme.backgroundColor }]}>
                     {/* Emoji / Keyboard Toggle */}
+
                     <TouchableOpacity style={styles.iconLeft} onPress={toggleEmojiKeyboard}>
                         {showEmoji ? <Entypo name="keyboard" size={24} color="#555" /> : <Ionicons name="happy-outline" size={24} color="#555" />}
                     </TouchableOpacity>
@@ -745,7 +1013,7 @@ export default function ChatScreen() {
                                 <TouchableOpacity
                                     key={idx}
                                     onPress={() => {
-                                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy); // ✅ Haptic feedback
+                                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
                                         addEmoji(emoji);
                                     }}
                                     style={styles.emojiButton}
@@ -759,7 +1027,7 @@ export default function ChatScreen() {
                         <TouchableOpacity
                             style={styles.deleteButton}
                             onPress={() => {
-                                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning); // ✅ different feedback
+                                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
                                 removeEmoji();
                             }}
                         >
@@ -813,124 +1081,53 @@ export default function ChatScreen() {
             />
 
             {/* Preview Media Modal */}
-            <Modal visible={!!previewMedia} transparent animationType="slide">
-                <StatusBar backgroundColor="black" barStyle="light-content" />
-                <View style={styles.fullscreenContainer}>
+            <MediaPreviewModal
+                visible={!!previewMedia}
+                media={previewMedia}
+                videoPlayer={videoPlayer}
+                uploading={uploading}
+                onClose={() => setPreviewMedia(null)}
+                onSend={async () => {
+                    try {
+                        setUploading(true);
 
-                    {previewMedia && previewMedia.type === "image" && (
-                        <Image
-                            source={{ uri: previewMedia.uri }}
-                            style={styles.fullscreenMedia}
-                            resizeMode="contain"
-                        />
-                    )}
+                        await sendMessage(chatId, {
+                            type: "media",
+                            localUri: previewMedia.uri,
+                            file: {
+                                uri: previewMedia.uri,
+                                name: `file.${previewMedia.type === "video" ? "mp4" : "jpg"}`,
+                                type: `${previewMedia.type}/${previewMedia.type === "video" ? "mp4" : "jpeg"}`,
+                            },
+                        });
 
-                    {previewMedia && previewMedia.type === "video" && (
-                        <VideoView
-                            style={styles.fullscreenMedia}
-                            player={videoPlayer}
-                            allowsFullscreen
-                            allowsPictureInPicture
-                            nativeControls
-                        />
-                    )}
+                        setPreviewMedia(null);
+                    } finally {
+                        setUploading(false);
+                    }
+                }}
+            />
 
-                    <View style={styles.previewActions}>
-                        <TouchableOpacity onPress={() => setPreviewMedia(null)} style={styles.cancelBtn}>
-                            <Text style={styles.cancelText}>Cancel</Text>
-                        </TouchableOpacity>
 
-                        <TouchableOpacity
-                            disabled={uploading} // disable while uploading
-                            onPress={async () => {
-                                try {
-                                    setUploading(true);
-                                    setProgress(0);
-
-                                    await sendMessage(chatId, {
-                                        type: "media",
-                                        file: {
-                                            uri: previewMedia.uri,
-                                            name: `file.${previewMedia.type === "video" ? "mp4" : "jpg"}`,
-                                            type: `${previewMedia.type}/${previewMedia.type === "video" ? "mp4" : "jpeg"}`,
-                                        },
-                                        onUploadProgress: (e) => {
-                                            const percent = Math.round((e.loaded * 100) / e.total);
-                                            setProgress(percent);
-                                        },
-                                    });
-
-                                    setUploading(false);
-                                    setPreviewMedia(null); // clear preview after send
-                                } catch (error) {
-                                    console.log("Upload error:", error);
-                                    setUploading(false);
-                                }
-                            }}
-                            style={[styles.sendBtn, uploading && { opacity: 0.6 }]}
-                        >
-                            {uploading ? (
-                                <View style={{ flexDirection: "row", alignItems: "center" }}>
-                                    <ActivityIndicator color="#fff" size="small" />
-                                    <Text style={[styles.sendText, { marginLeft: 8 }]}>
-                                        {progress > 0 ? ` ${progress}%` : " Sending..."}
-                                    </Text>
-                                </View>
-                            ) : (
-                                <Text style={styles.sendText}>Send</Text>
-                            )}
-                        </TouchableOpacity>
-
-                    </View>
-                </View>
-            </Modal>
 
             {/* Full Screen Modal */}
 
-            <Modal
+            <MediaViewerModal
                 visible={!!fullscreenMedia}
-                transparent={true}
-                animationType="fade"
-                onRequestClose={() => setFullscreenMedia(null)}
-            >
-                <StatusBar backgroundColor="black" barStyle="light-content" />
-                {fullscreenMedia && (
-                    <View style={styles.fullscreenContainer}>
-                        {fullscreenMedia.type === "image" ? (
-                            <Image
-                                source={{ uri: fullscreenMedia.uri }}
-                                style={styles.fullscreenMedia}
-                                resizeMode="contain"
-                            />
-                        ) : (
-                            <VideoView
-                                style={styles.fullscreenMedia}
-                                player={fullscreenPlayer}
-                                nativeControls
-                                allowsFullscreen
-                                allowsPictureInPicture
-                            />
-                        )}
-
-                        <View style={styles.fullscreenButtons}>
-                            <TouchableOpacity
-                                style={styles.downloadButton}
-                                onPress={() => downloadMedia(fullscreenMedia.uri)}
-                            >
-                                <Text style={{ color: "#fff" }}>Download</Text>
-                            </TouchableOpacity>
-
-
-                            <TouchableOpacity
-                                style={styles.closeButton}
-                                onPress={() => setFullscreenMedia(null)}
-                            >
-                                <Text style={{ color: "#fff" }}>Close</Text>
-                            </TouchableOpacity>
-                        </View>
-                    </View>
-                )}
-            </Modal>
+                media={fullscreenMedia}
+                videoPlayer={fullscreenPlayer}
+                showControls={showViewerControls}
+                onToggleControls={showControlsTemporarily}
+                onClose={() => setFullscreenMedia(null)}
+                onDownload={() =>
+                    downloadMediaToWhisp({
+                        uri: fullscreenMedia.uri,
+                        type: fullscreenMedia.type,
+                    })
+                }
+                senderLabel={fullscreenSenderLabel}
+                timeLabel={fullscreenTimeLabel}
+            />
 
 
 
@@ -947,126 +1144,273 @@ const styles = StyleSheet.create({
     headerImage: { width: 42, height: 42, borderRadius: 21, marginRight: 12 },
     headerName: { fontSize: 18, fontWeight: "600", color: "#1C1C1E" },
     headerIcons: { flexDirection: "row" },
-    iconButton: { marginHorizontal: 8 },
+    iconButton: { padding: 10, },
+    headerIcon: {
+        marginHorizontal: 8,
+        color: "#0A84FF",
+    },
 
-    messageWrapper: { flexDirection: "row", marginVertical: 4, marginHorizontal: 8 },
+
+    messageWrapper: {
+        flexDirection: "row",
+        alignItems: "flex-end",
+        marginVertical: 4,
+        marginHorizontal: 8,
+    },
     myWrapper: { justifyContent: "flex-end" },
     otherWrapper: { justifyContent: "flex-start" },
-    messageBubble: { paddingVertical: 10, paddingHorizontal: 14, borderRadius: 16, maxWidth: "75%" },
-    myMessage: { backgroundColor: "#DCF8C6", borderTopRightRadius: 4, alignSelf: "flex-end" },
-    otherMessage: { backgroundColor: "#FFFFFF", borderTopLeftRadius: 4, alignSelf: "flex-start" },
+    messageBubble: {
+        maxWidth: "80%",
+        minWidth: 40,
+        borderRadius: 16,
+    },
+    myMessage: { borderTopRightRadius: 4 },
+    otherMessage: { borderTopLeftRadius: 4 },
     textMessage: { fontSize: 16, color: "#222", lineHeight: 22, width: "auto" },
 
-    // 📍 Location card
-    locationCard: { padding: 10, borderRadius: 12, maxWidth: 250, },
-    cardHeader: { flexDirection: "row", alignItems: "center", marginBottom: 6, },
-    cardTitle: { fontSize: 15, fontWeight: "600", color: "#111", },
-    cardSubtitle: { fontSize: 13, color: "#555", },
+    // Location card
+    locationCard: {
+        padding: 12,
+        borderRadius: 16,
+        maxWidth: 260,
+        backgroundColor: "#FFFFFF",
+        shadowColor: "#000",
+        shadowOpacity: 0.08,
+        shadowRadius: 10,
+        shadowOffset: { width: 0, height: 4 },
+        elevation: 3,
+    },
 
-    // 👤 Contact card
-    contactCard: { padding: 12, borderRadius: 12, maxWidth: 250, },
-    contactAction: { marginTop: 10, paddingVertical: 8, alignItems: "center", borderTopWidth: 0.5, borderColor: "#ddd", },
-    contactActionText: { fontSize: 14, fontWeight: "600", color: "#0A84FF", },
+    locationHeader: {
+        flexDirection: "row",
+        alignItems: "center",
+    },
 
-    // 🗳 Poll card
-    pollCard: { padding: 12, borderRadius: 12, width: 800, },
-    pollHint: { fontSize: 12, color: "#777", marginBottom: 8, },
-    pollOption: { flexDirection: "row", alignItems: "center", marginBottom: 6, },
-    pollOptionText: { flex: 1, marginLeft: 6, fontSize: 14, color: "#333", },
-    radioOuter: { height: 20, width: 20, borderRadius: 10, borderWidth: 2, borderColor: "#0A84FF", alignItems: "center", justifyContent: "center", marginRight: 8, },
-    radioInner: { height: 10, width: 10, borderRadius: 5, backgroundColor: "#0A84FF", },
-    pollDivider: { height: 1, backgroundColor: "#ddd", marginVertical: 8 },
-    pollFooter: { fontSize: 13, color: "#0A84FF", fontWeight: "500" },
+    locationIconWrap: {
+        width: 36,
+        height: 36,
+        borderRadius: 18,
+        backgroundColor: "#0A84FF",
+        alignItems: "center",
+        justifyContent: "center",
+        marginRight: 10,
+    },
 
-    inputContainer: { flexDirection: "row", alignItems: "center", paddingHorizontal: 8, backgroundColor: "#F7F8FA" },
-    inputWithIcons: { flex: 1, borderWidth: 1, borderColor: "#E0E0E0", borderRadius: 25, paddingLeft: 40, paddingRight: 110, paddingVertical: Platform.OS === "ios" ? 10 : 6, fontSize: 15, backgroundColor: "#FFFFFF", color: "#1C1C1E", maxHeight: 100, minHeight: 30, marginBottom: 30 },
-    iconLeft: { position: "absolute", left: 12, zIndex: 10, marginBottom: 30 },
-    attachIcon: { position: "absolute", zIndex: 10, marginBottom: 30 },
-    iconRight: { position: "absolute", right: 70, zIndex: 10, marginBottom: 30 },
-    sendButton: { backgroundColor: "#0A84FF", padding: 12, marginLeft: 6, borderRadius: 25, justifyContent: "center", alignItems: "center", marginBottom: 30 },
+    locationTitle: {
+        fontSize: 15,
+        fontWeight: "600",
+    },
 
-    emojiContainer: { height: 250, backgroundColor: "#f2f2f2", borderTopWidth: 1, borderColor: "#ddd", position: "relative", },
+    locationSubtitle: {
+        fontSize: 12,
+        color: "#8E8E93",
+        marginTop: 2,
+    },
+
+    locationFooter: {
+        alignItems: "center",
+        marginTop: 10,
+        paddingTop: 8,
+        borderTopWidth: 0.5,
+        borderColor: "#E5E5EA",
+    },
+
+    locationLink: {
+        fontSize: 12,
+        color: "#0A84FF",
+        marginLeft: 6,
+        flex: 1,
+    },
+
+    // Contact card
+    contactCard: {
+        padding: 14,
+        borderRadius: 16,
+        maxWidth: 260,
+        backgroundColor: "#FFFFFF",
+        shadowColor: "#000",
+        shadowOpacity: 0.08,
+        shadowRadius: 10,
+        shadowOffset: { width: 0, height: 4 },
+        elevation: 3,
+    },
+
+    contactHeader: {
+        flexDirection: "row",
+        alignItems: "center",
+    },
+
+    contactAvatar: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        backgroundColor: "#4CAF50",
+        alignItems: "center",
+        justifyContent: "center",
+    },
+
+    contactInfo: {
+        marginLeft: 10,
+        flex: 1,
+    },
+
+    contactName: {
+        fontSize: 15,
+        fontWeight: "600",
+    },
+
+    contactNumber: {
+        fontSize: 13,
+        color: "#8E8E93",
+        marginTop: 2,
+    },
+
+    contactAction: {
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "center",
+        marginTop: 12,
+        paddingVertical: 10,
+        borderTopWidth: 0.5,
+        borderColor: "#E5E5EA",
+    },
+
+    contactActionText: {
+        fontSize: 14,
+        fontWeight: "600",
+        color: "#0A84FF",
+        marginLeft: 6,
+    },
+
+
+    // Poll card
+    pollCard: {
+        padding: 14,
+        borderRadius: 16,
+        width: "100%",
+        backgroundColor: "#FFFFFF",
+        shadowColor: "#000",
+        shadowOpacity: 0.08,
+        shadowRadius: 10,
+        shadowOffset: { width: 0, height: 4 },
+        elevation: 3,
+    },
+
+    pollTitle: {
+        fontSize: 16,
+        fontWeight: "600",
+        marginBottom: 4,
+    },
+
+    pollHint: {
+        fontSize: 12,
+        color: "#8E8E93",
+        marginBottom: 12,
+    },
+
+    pollOption: {
+        marginBottom: 10,
+        borderRadius: 12,
+        overflow: "hidden",
+    },
+
+    pollOptionSelected: {
+        borderWidth: 1,
+        borderColor: "#0A84FF",
+    },
+
+    pollProgressBackground: {
+        ...StyleSheet.absoluteFillObject,
+        backgroundColor: "#F2F2F7",
+    },
+
+    pollProgressFill: {
+        height: "100%",
+        backgroundColor: "rgba(10,132,255,0.15)",
+    },
+
+    pollOptionContent: {
+        flexDirection: "row",
+        alignItems: "center",
+        paddingVertical: 10,
+        paddingHorizontal: 12,
+    },
+
+    pollOptionText: {
+        flex: 1,
+        fontSize: 14,
+        marginLeft: 8,
+    },
+
+    pollPercent: {
+        fontSize: 12,
+        fontWeight: "600",
+        color: "#0A84FF",
+    },
+
+    radioOuter: {
+        height: 20,
+        width: 20,
+        borderRadius: 10,
+        borderWidth: 2,
+        borderColor: "#0A84FF",
+        alignItems: "center",
+        justifyContent: "center",
+    },
+
+    radioInner: {
+        height: 10,
+        width: 10,
+        borderRadius: 5,
+        backgroundColor: "#0A84FF",
+    },
+
+    pollDivider: {
+        height: 1,
+        backgroundColor: "#E5E5EA",
+        marginVertical: 10,
+    },
+
+    pollFooter: {
+        fontSize: 13,
+        color: "#0A84FF",
+        fontWeight: "500",
+        textAlign: "center",
+    },
+
+    // media
+
+    mediaBubble: {
+        maxWidth: 280,
+        borderRadius: 14,
+        overflow: "hidden",
+        backgroundColor: "#000",
+        shadowColor: "#000",
+        shadowOpacity: 0.15,
+        shadowRadius: 8,
+        shadowOffset: { width: 0, height: 4 },
+        elevation: 4,
+    },
+
+    media: {
+        width: "100%",
+        aspectRatio: 1,
+    },
+
+
+
+
+    inputContainer: { flexDirection: "row", alignItems: "center", paddingHorizontal: 8, backgroundColor: "#F7F8FA", paddingBottom: Platform.OS === "ios" ? 8 : 4, },
+    inputWithIcons: { flex: 1, borderWidth: 1, borderColor: "#E0E0E0", borderRadius: 25, paddingLeft: 40, paddingRight: 110, paddingVertical: Platform.OS === "ios" ? 10 : 6, fontSize: 15, backgroundColor: "#FFFFFF", color: "#1C1C1E", maxHeight: 100, minHeight: 30, },
+    iconLeft: { position: "absolute", left: 12, zIndex: 10 },
+    attachIcon: { position: "absolute", zIndex: 10 },
+    iconRight: { position: "absolute", right: 70, zIndex: 10 },
+    sendButton: { backgroundColor: "#0A84FF", padding: 12, marginLeft: 6, borderRadius: 25, justifyContent: "center", alignItems: "center" },
+
+    emojiContainer: { height: 250, backgroundColor: "#f2f2f2", borderTopWidth: 1, borderColor: "#ddd", elevation: 10, },
     emojiGrid: { flexDirection: "row", flexWrap: "wrap", padding: 8, },
     emojiButton: { width: `${100 / 9}%`, justifyContent: "center", alignItems: "center", paddingVertical: 10, },
     deleteButton: { position: "absolute", bottom: 10, right: 10, padding: 8, },
-
-    previewContainer: {
-        flex: 1,
-        backgroundColor: "rgba(0,0,0,0.8)",
-        justifyContent: "center",
-        alignItems: "center",
-    },
-    previewBox: {
-        width: "90%",
-        backgroundColor: "#fff",
-        padding: 10,
-        borderRadius: 12,
-        alignItems: "center",
-    },
-    previewActions: {
-        flexDirection: "row",
-        justifyContent: "space-between",
-        marginTop: 15,
-        width: "100%",
-    },
-    cancelBtn: {
-        padding: 10,
-        backgroundColor: "#ccc",
-        borderRadius: 8,
-        flex: 1,
-        marginRight: 5,
-        alignItems: "center",
-    },
-    sendBtn: {
-        padding: 10,
-        backgroundColor: "#0A84FF",
-        borderRadius: 8,
-        flex: 1,
-        marginLeft: 5,
-        alignItems: "center",
-    },
-    cancelText: { color: "#000", fontWeight: "600" },
-    sendText: { color: "#fff", fontWeight: "600" },
-    progressContainer: {
-        position: "absolute",
-        top: "45%",
-        left: 0,
-        right: 0,
-        alignItems: "center",
-        justifyContent: "center",
-        backgroundColor: "rgba(0,0,0,0.6)",
-        padding: 20,
-        borderRadius: 10,
-    },
-
-
-    fullscreenContainer: {
-        flex: 1,
-        backgroundColor: "black",
-        justifyContent: "center",
-        alignItems: "center",
-    },
-    fullscreenMedia: {
-        width: "100%",
-        height: "80%",
-    },
-    fullscreenButtons: {
-        position: "absolute",
-        bottom: 50,
-        flexDirection: "row",
-        justifyContent: "space-around",
-        width: "80%",
-    },
-    downloadButton: {
-        backgroundColor: "#0A84FF",
-        padding: 10,
-        borderRadius: 8,
-    },
-    closeButton: {
-        backgroundColor: "red",
-        padding: 10,
-        borderRadius: 8,
-    },
 
     popup: {
         position: "absolute",
@@ -1095,16 +1439,12 @@ const styles = StyleSheet.create({
         width: 8,
         height: 8,
         borderRadius: 4,
-        backgroundColor: "#25D366", // WhatsApp green
+        backgroundColor: "#25D366",
         marginRight: 6,
-
-        // ✨ Glow / bloom effect
         shadowColor: "#25D366",
         shadowOffset: { width: 0, height: 0 },
         shadowOpacity: 0.9,
         shadowRadius: 6,
-
-        // Android glow
         elevation: 6,
     },
 
@@ -1116,8 +1456,22 @@ const styles = StyleSheet.create({
 
     lastSeenText: {
         fontSize: 12,
-        color: "#8E8E93", // soft gray
+        color: "#8E8E93",
+    },
+
+    blurredOverlay: {
+        ...StyleSheet.absoluteFillObject,
+        backgroundColor: "rgba(0,0,0,0.45)",
+    },
+
+    blurredPreview: {
+        width: 220,
+        height: 220,
+        borderRadius: 12,
+        overflow: "hidden",
+        alignItems: "center",
+        justifyContent: "center",
     },
 
 
-});
+}); 

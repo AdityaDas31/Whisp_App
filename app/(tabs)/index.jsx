@@ -30,7 +30,7 @@ export default function HomeScreen() {
   const [menuVisible, setMenuVisible] = useState(false);
 
   const { token, user } = useAuth();
-  const { chats, openChat, loadChatsFromLocalDB, dbReady, safeLoadChatsFromLocalDB  } = useChats();
+  const { chats, openChat, loadChatsFromLocalDB, dbReady, safeLoadChatsFromLocalDB } = useChats();
   const navigation = useNavigation();
 
   useEffect(() => {
@@ -146,6 +146,67 @@ export default function HomeScreen() {
     }
   };
 
+  const renderMessagePreview = (message) => {
+    if (!message) return "No messages yet";
+
+    switch (message.type) {
+      case "text":
+        return message.content;
+
+      case "location":
+        return "📍 Location shared";
+
+      case "contact":
+        return `👤 ${message.contact?.name || "Contact"}`;
+
+      case "poll":
+        return `🗳 ${message.poll?.topic || "Poll created"}`;
+
+      case "media":
+        if (message.media?.format === "image") return "📷 Photo";
+        if (message.media?.format === "video") return "🎥 Video";
+        return "📎 File";
+
+      default:
+        return "Unsupported message";
+    }
+  };
+
+
+  const renderStatusTick = (message) => {
+    if (!message) return null;
+
+    // normalize sender id (object OR string)
+    const senderId =
+      typeof message.sender === "object"
+        ? message.sender?._id
+        : message.sender;
+
+    // show ticks only for MY messages
+    if (senderId !== user._id) return null;
+
+    let iconName = "checkmark";
+    let color = "#999";
+
+    if (message.status === "delivered") {
+      iconName = "checkmark-done";
+    }
+
+    if (message.status === "seen") {
+      iconName = "checkmark-done";
+      color = "#0A84FF";
+    }
+
+    return (
+      <Ionicons
+        name={iconName}
+        size={14}
+        color={color}
+        style={{ marginRight: 4 }}
+      />
+    );
+  };
+
 
 
   return (
@@ -230,15 +291,21 @@ export default function HomeScreen() {
                         )}
                       </Text>
                     </View>
-                    <Text
-                      numberOfLines={1}
-                      style={[
-                        styles.chatMessage,
-                        item.unreadCount > 0 && { color: "#0A84FF", fontWeight: "600" },
-                      ]}
-                    >
-                      {getPreviewText(item.latestMessage) || "No messages yet"}
-                    </Text>
+
+                    <View style={{ flexDirection: "row", alignItems: "center" }}>
+                      {renderStatusTick(item.latestMessage)}
+
+                      <Text
+                        numberOfLines={1}
+                        style={[
+                          styles.chatMessage,
+                          item.unreadCount > 0 && { color: "#0A84FF", fontWeight: "600" },
+                        ]}
+                      >
+                        {renderMessagePreview(item.latestMessage)}
+                      </Text>
+                    </View>
+
 
                   </View>
                   {item.unreadCount > 0 && (
