@@ -64,23 +64,6 @@ const attachmentOptions = [
     { name: "Poll", icon: "bar-chart-outline", type: "poll" },
 ];
 
-// Local video player used for video thumbnails
-const VideoMessage = ({ uri }) => {
-    const player = useVideoPlayer({ uri }, (p) => {
-        p.loop = false;
-        p.shouldPlay = false;
-    });
-
-    return (
-        <VideoView
-            style={{ width: 250, height: 200, borderRadius: 10 }}
-            player={player}
-            nativeControls={false}
-            fullscreenOptions={{ enabled: true }}
-        />
-    );
-};
-
 // Preview shown for remote media that hasn't been downloaded locally
 const BlurredMediaPreview = ({ thumbnailUri, progress, onDownload }) => (
     <Pressable onPress={onDownload} style={styles.blurredPreview}>
@@ -111,7 +94,6 @@ export default function ChatScreen() {
 
     const [text, setText] = useState("");
     const [profileVisible, setProfileVisible] = useState(false);
-    const [keyboardHeight, setKeyboardHeight] = useState(0);
     const [showEmoji, setShowEmoji] = useState(false);
     const [showAttachModal, setShowAttachModal] = useState(false);
 
@@ -138,20 +120,19 @@ export default function ChatScreen() {
 
     const [showViewerControls, setShowViewerControls] = useState(true);
     const controlsTimeoutRef = useRef(null);
-    const [showPreviewControls, setShowPreviewControls] = useState(true);
-
-
-
-
 
 
     const fullscreenPlayer = useVideoPlayer(
-        fullscreenMedia?.type === "video" ? fullscreenMedia.uri : null,
+        fullscreenMedia?.uri ?? null,
         (player) => {
-            player.loop = false;
-            player.play(); // autoplay when modal opens
+            if (fullscreenMedia?.type === "video") {
+                player.loop = false;
+                player.play();
+            }
         }
     );
+
+
 
 
     const flatListRef = useRef(null);
@@ -171,21 +152,6 @@ export default function ChatScreen() {
         return luminance > 186;
     };
 
-    // Keyboard listeners
-    useEffect(() => {
-        const showSub = Keyboard.addListener("keyboardDidShow", (e) => {
-            setKeyboardHeight(e.endCoordinates.height);
-            setShowEmoji(false);
-        });
-        const hideSub = Keyboard.addListener("keyboardDidHide", () => {
-            setKeyboardHeight(0);
-        });
-
-        return () => {
-            showSub.remove();
-            hideSub.remove();
-        };
-    }, []);
 
     useEffect(() => {
         joinChat(chatId);
@@ -204,6 +170,20 @@ export default function ChatScreen() {
             userId: user._id,
         });
     }, [chatId, socket]);
+
+    const chatMessages = messages[chatId] || [];
+    const prevMessageCount = useRef(chatMessages.length);
+
+    useEffect(() => {
+        if (chatMessages.length > prevMessageCount.current) {
+            requestAnimationFrame(() => {
+                flatListRef.current?.scrollToEnd({ animated: true });
+            });
+        }
+
+        prevMessageCount.current = chatMessages.length;
+    }, [chatMessages.length]);
+
 
 
 
@@ -226,8 +206,6 @@ export default function ChatScreen() {
     const addEmoji = (emoji) => setText((prev) => prev + emoji);
     const removeEmoji = () => setText((prev) => prev.slice(0, -2));
 
-    const chatMessages = messages[chatId] || [];
-
     const formatMessageTime = (date) => {
         if (!date) return "";
 
@@ -238,6 +216,8 @@ export default function ChatScreen() {
     };
 
     const renderItem = ({ item }) => {
+        // console.log("media", item.media);
+
         const senderId = typeof item.sender === "object" ? item.sender._id : item.sender;
         const isMine = senderId === user._id;
         const isMedia = item.type === "media" && (item.media?.format === "image" || item.media?.format === "video");
@@ -251,6 +231,11 @@ export default function ChatScreen() {
         // Render message body based on message.type
         const renderMessageContent = (message, isMine) => {
             const textColor = isMine ? theme.myTextColor : theme.otherTextColor;
+            const cardsBackground = isMine ? theme.myCardBg : theme.otherCardBg;
+            const cardTextColor = isMine ? theme.myCardText : theme.otherCardText;
+            const cardLinkColor = isMine ? theme.myCardLink : theme.otherCardLink;
+            const cardIconColor = isMine ? theme.myCardIconColor : theme.otherCardIcon;
+            const cardIconBg = isMine ? theme.myCardIconBg : theme.otherCardIconBg;
 
             switch (message.type) {
                 case "text":
@@ -262,22 +247,18 @@ export default function ChatScreen() {
 
                 case "location":
                     return (
-                        <TouchableOpacity
-                            style={styles.locationCard}
-                            activeOpacity={0.85}
-                            onPress={() => Linking.openURL(message.location?.link)}
-                        >
+                        <View style={[styles.locationCard, {backgroundColor: cardsBackground}]} pointerEvents={isSelectionMode ? "none" : "auto"}>
                             <View style={styles.locationHeader}>
-                                <View style={styles.locationIconWrap}>
-                                    <Ionicons name="location" size={18} color="#fff" />
+                                <View style={[styles.locationIconWrap, {backgroundColor: cardIconBg}]}>
+                                    <Ionicons name="location" size={18} style= {{color: cardIconColor}} />
                                 </View>
 
                                 <View style={{ flex: 1 }}>
-                                    <Text style={[styles.locationTitle, { color: textColor }]}>
+                                    <Text style={[styles.locationTitle, { color: cardTextColor }]}>
                                         Shared location
                                     </Text>
                                     <Text
-                                        style={[styles.locationSubtitle, { color: textColor }]}
+                                        style={[styles.locationSubtitle, { color: cardTextColor }]}
                                         numberOfLines={1}
                                     >
                                         Tap to view on map
@@ -286,20 +267,18 @@ export default function ChatScreen() {
                             </View>
 
                             <View style={styles.locationFooter}>
-                                <Ionicons name="map-outline" size={14} color="#0A84FF" />
-                                <Text
-                                    style={styles.locationLink}
-                                    numberOfLines={1}
-                                >
+                                <Ionicons name="map-outline" size={14} style= {{color: cardIconColor}} />
+                                <Text style={[styles.locationLink, {color: cardLinkColor}]} numberOfLines={1}>
                                     {message.location?.link}
                                 </Text>
                             </View>
-                        </TouchableOpacity>
+                        </View>
                     );
+
 
                 case "contact":
                     return (
-                        <View style={styles.contactCard}>
+                        <View style={styles.contactCard} pointerEvents={isSelectionMode ? "none" : "auto"}>
                             {/* Header */}
                             <View style={styles.contactHeader}>
                                 <View style={styles.contactAvatar}>
@@ -335,7 +314,7 @@ export default function ChatScreen() {
 
                 case "poll":
                     return (
-                        <View style={styles.pollCard}>
+                        <View style={styles.pollCard} pointerEvents={isSelectionMode ? "none" : "auto"}>
                             {/* Header */}
                             <Text style={[styles.pollTitle, { color: textColor }]}>
                                 {message.poll?.topic}
@@ -407,15 +386,16 @@ export default function ChatScreen() {
                     const format = message.media?.format;
                     const isVideo = format === "video";
 
-                    if (!localUri) {
+                    // 🔐 SAFETY GUARD (IMPORTANT)
+                    if (isVideo && (!localUri || typeof localUri !== "string")) {
                         return (
                             <BlurredMediaPreview
-                                thumbnailUri={message.media.url}
+                                thumbnailUri={message.media?.url}
                                 progress={downloadProgress[message._id] || 0}
                                 onDownload={() =>
                                     downloadMediaToWhisp({
                                         uri: message.media.url,
-                                        type: isVideo ? "video" : "image",
+                                        type: "video",
                                         messageId: message._id,
                                     })
                                 }
@@ -430,6 +410,7 @@ export default function ChatScreen() {
                             isMine={isMine}
                             time={formatMessageTime(item.createdAt)}
                             status={item.status}
+                            progress={item.progress}
                             onPress={() =>
                                 setFullscreenMedia({
                                     message: item,
@@ -438,9 +419,9 @@ export default function ChatScreen() {
                                 })
                             }
                         />
-
                     );
                 }
+
 
                 default:
                     return (
@@ -460,20 +441,34 @@ export default function ChatScreen() {
                 <Pressable
                     onLongPress={() => {
                         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-
-                        setSelectedMessages((prev) => {
-                            if (prev.includes(item._id)) return prev;
-                            return [...prev, item._id];
-                        });
-                    }}
-                    onPress={() => {
-                        if (!isSelectionMode) return;
-
-                        setSelectedMessages((prev) =>
-                            prev.includes(item._id)
-                                ? prev.filter((id) => id !== item._id)
-                                : [...prev, item._id]
+                        setSelectedMessages(prev =>
+                            prev.includes(item._id) ? prev : [...prev, item._id]
                         );
+                    }}
+
+                    onPress={() => {
+                        if (isSelectionMode) {
+                            setSelectedMessages(prev =>
+                                prev.includes(item._id)
+                                    ? prev.filter(id => id !== item._id)
+                                    : [...prev, item._id]
+                            );
+                            return;
+                        }
+
+                        if (item.type === "media") {
+                            setFullscreenMedia({
+                                message: item,
+                                uri: item.media?.localUri,
+                                type: item.media?.format,
+                            });
+                        }
+
+
+                        // ✅ NORMAL TAP ACTION HERE
+                        if (item.type === "location") {
+                            Linking.openURL(item.location?.link);
+                        }
                     }}
                     style={[
                         styles.messageBubble,
@@ -492,40 +487,40 @@ export default function ChatScreen() {
 
                     {renderMessageContent(item, isMine)}
                     {!isMedia && (
-                    
-                    <View
-                        style={{
-                            flexDirection: "row",
-                            justifyContent: "flex-end",
-                            marginTop: 4,
-                        }}
-                    >
-                        <Text
+
+                        <View
                             style={{
-                                fontSize: 11,
-                                color: isMine ? "#000" : "#777",
-                                marginRight: isMine ? 4 : 0,
+                                flexDirection: "row",
+                                justifyContent: "flex-end",
+                                marginTop: 4,
                             }}
                         >
-                            {formatMessageTime(item.createdAt)}
-                        </Text>
+                            <Text
+                                style={{
+                                    fontSize: 11,
+                                    color: isMine ? "#000" : "#777",
+                                    marginRight: isMine ? 4 : 0,
+                                }}
+                            >
+                                {formatMessageTime(item.createdAt)}
+                            </Text>
 
-                        {isMine && (
-                            <View style={{ alignSelf: "flex-end", marginTop: 4 }}>
-                                <Ionicons
-                                    name={
-                                        item.status === "seen"
-                                            ? "checkmark-done"
-                                            : item.status === "delivered"
+                            {isMine && (
+                                <View style={{ alignSelf: "flex-end", marginTop: 4 }}>
+                                    <Ionicons
+                                        name={
+                                            item.status === "seen"
                                                 ? "checkmark-done"
-                                                : "checkmark"
-                                    }
-                                    size={16}
-                                    color={item.status === "seen" ? "#0A84FF" : "#999"}
-                                />
-                            </View>
-                        )}
-                    </View>
+                                                : item.status === "delivered"
+                                                    ? "checkmark-done"
+                                                    : "checkmark"
+                                        }
+                                        size={16}
+                                        color={item.status === "seen" ? "#0A84FF" : "#999"}
+                                    />
+                                </View>
+                            )}
+                        </View>
                     )}
                 </Pressable>
 
@@ -553,6 +548,7 @@ export default function ChatScreen() {
         if (!result.canceled) {
             console.log("Captured Image URI:", result.assets[0].uri);
         }
+        focusInputSafely();
     };
 
     const requestGalleryPermission = async () => {
@@ -590,6 +586,7 @@ export default function ChatScreen() {
                     link: `https://www.google.com/maps?q=${location.coords.latitude},${location.coords.longitude}`
                 }
             });
+            focusInputSafely();
         }
 
         if (type === "contact") {
@@ -616,12 +613,15 @@ export default function ChatScreen() {
             } else {
                 alert("No contacts found on device!");
             }
+            focusInputSafely();
+
         }
 
 
         if (type === "poll") {
             // Open poll modal
             setShowPollModal(true);
+            focusInputSafely();
         }
 
         if (type === "photos") {
@@ -637,19 +637,18 @@ export default function ChatScreen() {
             if (!result.canceled) {
                 setPreviewMedia({ uri: result.assets[0].uri, type: result.assets[0].type });
             }
+            focusInputSafely();
         }
-
-
     };
 
 
 
-    const videoPlayer = useVideoPlayer(
-        previewMedia?.type === "video" ? previewMedia.uri : null,
-        (player) => {
+    const videoPlayer = previewMedia?.type === "video"
+        ? useVideoPlayer(previewMedia.uri, (player) => {
             player.loop = false;
-        }
-    );
+        })
+        : null;
+
 
     const addPollOption = () => setPollOptions([...pollOptions, ""]);
     const updatePollOption = (index, value) => {
@@ -847,6 +846,12 @@ export default function ChatScreen() {
         })
         : "";
 
+    const focusInputSafely = () => {
+        setTimeout(() => {
+            inputRef.current?.focus();
+        }, 100);
+    };
+
 
     return (
         <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.backgroundColor }]} edges={["top"]}>
@@ -940,17 +945,17 @@ export default function ChatScreen() {
                     data={chatMessages}
                     keyExtractor={(item) => item._id}
                     renderItem={renderItem}
-                    onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: true })}
-                    onLayout={() => flatListRef.current?.scrollToEnd({ animated: false })}
-
-                    contentContainerStyle={{ paddingVertical: 8, justifyContent: "flex-end" }}
-                    extraScrollHeight={10}
+                    contentContainerStyle={{ paddingVertical: 8, paddingBottom: 8, }}
                     enableOnAndroid
                     keyboardShouldPersistTaps="handled"
+                    enableAutomaticScroll={false}
+                    keyboardOpeningTime={0}
+                    extraScrollHeight={12}
+                    extraHeight={0}
                 />
 
+
                 {/* Input */}
-                {/* <View style={[styles.inputContainer, { marginBottom: keyboardHeight, backgroundColor: theme.backgroundColor }]}></View> */}
                 <View style={[styles.inputContainer, { backgroundColor: theme.backgroundColor }]}>
                     {/* Emoji / Keyboard Toggle */}
 
@@ -1050,7 +1055,10 @@ export default function ChatScreen() {
 
             <AttachModal
                 visible={showAttachModal}
-                onClose={() => setShowAttachModal(false)}
+                onClose={() => {
+                    setShowAttachModal(false);
+                    focusInputSafely(); // ✅ IMPORTANT
+                }}
                 options={attachmentOptions}
                 onSelect={handleAttachmentPress}
             />
@@ -1088,24 +1096,20 @@ export default function ChatScreen() {
                 uploading={uploading}
                 onClose={() => setPreviewMedia(null)}
                 onSend={async () => {
-                    try {
-                        setUploading(true);
+                    setPreviewMedia(null);   // 🔥 close modal immediately
 
-                        await sendMessage(chatId, {
-                            type: "media",
-                            localUri: previewMedia.uri,
-                            file: {
-                                uri: previewMedia.uri,
-                                name: `file.${previewMedia.type === "video" ? "mp4" : "jpg"}`,
-                                type: `${previewMedia.type}/${previewMedia.type === "video" ? "mp4" : "jpeg"}`,
-                            },
-                        });
-
-                        setPreviewMedia(null);
-                    } finally {
-                        setUploading(false);
-                    }
+                    await sendMessage(chatId, {
+                        type: "media",
+                        localUri: previewMedia.uri,
+                        file: {
+                            uri: previewMedia.uri,
+                            name: `file.${previewMedia.type === "video" ? "mp4" : "jpg"}`,
+                            type: `${previewMedia.type}/${previewMedia.type === "video" ? "mp4" : "jpeg"}`,
+                        },
+                    });
                 }}
+
+
             />
 
 
@@ -1115,7 +1119,7 @@ export default function ChatScreen() {
             <MediaViewerModal
                 visible={!!fullscreenMedia}
                 media={fullscreenMedia}
-                videoPlayer={fullscreenPlayer}
+                videoPlayer={fullscreenMedia?.type === "video" ? fullscreenPlayer : null}
                 showControls={showViewerControls}
                 onToggleControls={showControlsTemporarily}
                 onClose={() => setFullscreenMedia(null)}
@@ -1400,7 +1404,13 @@ const styles = StyleSheet.create({
 
 
 
-    inputContainer: { flexDirection: "row", alignItems: "center", paddingHorizontal: 8, backgroundColor: "#F7F8FA", paddingBottom: Platform.OS === "ios" ? 8 : 4, },
+    inputContainer: {
+        flexDirection: "row",
+        alignItems: "center",
+        paddingHorizontal: 8,
+        paddingVertical: 6,
+        backgroundColor: "#F7F8FA",
+    },
     inputWithIcons: { flex: 1, borderWidth: 1, borderColor: "#E0E0E0", borderRadius: 25, paddingLeft: 40, paddingRight: 110, paddingVertical: Platform.OS === "ios" ? 10 : 6, fontSize: 15, backgroundColor: "#FFFFFF", color: "#1C1C1E", maxHeight: 100, minHeight: 30, },
     iconLeft: { position: "absolute", left: 12, zIndex: 10 },
     attachIcon: { position: "absolute", zIndex: 10 },

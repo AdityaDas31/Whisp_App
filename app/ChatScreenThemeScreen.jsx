@@ -8,14 +8,21 @@ import { useChatTheme } from "../context/ChatThemeContext";
 import { useNavigation } from "@react-navigation/native";
 
 const PRESET_THEMES = [
-  { id: "default", name: "Default", bg: "#F7F8FA", my: "#DCF8C6", other: "#FFFFFF", wallpaper: null, button: "#0A84FF", buttonText: "#FFFFFF", myText: "#000000", otherText: "#000000", normalText: "#000000" },
-  { id: "dark", name: "Dark", bg: "#111111", my: "#1E90FF", other: "#2C2C2C", wallpaper: null, button: "#1E90FF", buttonText: "#FFFFFF", myText: "#FFFFFF", otherText: "#FFFFFF", normalText: "#FFFFFF" },
-  { id: "sun", name: "Sun", bg: "#FFF7E6", my: "#FFD57E", other: "#FFF", wallpaper: null, button: "#FF9500", buttonText: "#FFFFFF", myText: "#333333", otherText: "#000000", normalText: "#000000" },
-  { id: "ocean", name: "Ocean", bg: "#E8F6FF", my: "#A2DBFF", other: "#FFFFFF", wallpaper: null, button: "#0077B6", buttonText: "#FFFFFF", button: "#40b2f9ff", buttonText: "#FFFFFF", myText: "#002B5B", otherText: "#000000", normalText: "#000000" },
-  { id: "naruto", name: "Naruto", bg: "#E6D7B9", my: "#F89C1C", other: "#49B9F2", wallpaper: "https://i.pinimg.com/736x/eb/76/90/eb7690967b22c0895a0a05aeb64d2e7b.jpg", button: "#F89C1C", buttonText: "#FFFFFF", myText: "#1B2A49", otherText: "#000000", normalText: "#000000" },
-  { id: "galaxy", name: "Galaxy", bg: "#0D1B2A", my: "#1B263B", other: "#415A77", wallpaper: "https://images.unsplash.com/photo-1444703686981-a3abbc4d4fe3?w=800", button: "#333943ff", buttonText: "#FFFFFF", myText: "#E0E0E0", otherText: "#E0E0E0", normalText: "#FFFFFF" },
-  { id: "rose", name: "Rose", bg: "#FFF0F5", my: "#FFB6C1", other: "#FFFFFF", wallpaper: null, button: "#FF69B4", buttonText: "#FFFFFF", myText: "#800020", otherText: "#000000", normalText: "#000000" },
-  { id: "matrix", name: "Matrix", bg: "#000000", my: "#00FF41", other: "#0D0D0D", wallpaper: "https://wallpaperaccess.com/full/138728.jpg", button: "#00FF41", buttonText: "#000000", myText: "#333333", otherText: "#FFFFFF", normalText: "#E0E0E0" },
+  { id: "default", name: "Default", bg: "#F7F8FA", my: "#DCF8C6", other: "#FFFFFF", wallpaper: null, button: "#0A84FF", buttonText: "#FFFFFF", myText: "#000000", otherText: "#000000", normalText: "#000000", myCardBackground: "#DCF8C6", myCardText: "#000000", myCardLink: "#0A84FF", myCardIcon: "#0A84FF", myCardIconBackground: "rgba(10,132,255,0.15)", otherCardBackground: "#FFFFFF", otherCardText: "#000000", otherCardLink: "#0A84FF", otherCardIcon: "#0A84FF", otherCardIconBackground: "rgba(10,132,255,0.12)", },
+
+  { id: "dark", name: "Dark", bg: "#111111", my: "#1E90FF", other: "#2C2C2C", wallpaper: null, button: "#1E90FF", buttonText: "#FFFFFF", myText: "#FFFFFF", otherText: "#FFFFFF", normalText: "#FFFFFF", myCardBackground: "#1E90FF", myCardText: "#FFFFFF", myCardLink: "#B3D9FF", myCardIcon: "#FFFFFF", myCardIconBackground: "rgba(255,255,255,0.2)", otherCardBackground: "#2C2C2C", otherCardText: "#FFFFFF", otherCardLink: "#6BB7FF", otherCardIcon: "#6BB7FF", otherCardIconBackground: "rgba(107,183,255,0.2)", },
+
+  { id: "sun", name: "Sun", bg: "#FFF7E6", my: "#FFD57E", other: "#FFF", wallpaper: null, button: "#FF9500", buttonText: "#FFFFFF", myText: "#333333", otherText: "#000000", normalText: "#000000", myCardBackground: "#FFD57E", myCardText: "#333333", myCardLink: "#FF9500", myCardIcon: "#FF9500", myCardIconBackground: "rgba(255,149,0,0.18)", otherCardBackground: "#FFFFFF", otherCardText: "#000000", otherCardLink: "#FF9500", otherCardIcon: "#FF9500", otherCardIconBackground: "rgba(255,149,0,0.12)", },
+
+  { id: "ocean", name: "Ocean", bg: "#E8F6FF", my: "#A2DBFF", other: "#FFFFFF", wallpaper: null, button: "#0077B6", buttonText: "#FFFFFF", button: "#40b2f9ff", buttonText: "#FFFFFF", myText: "#002B5B", otherText: "#000000", normalText: "#000000", myCardBackground: "#A2DBFF", myCardText: "#002B5B", myCardLink: "#0077B6", myCardIcon: "#0077B6", myCardIconBackground: "rgba(0,119,182,0.18)", otherCardBackground: "#FFFFFF", otherCardText: "#000000", otherCardLink: "#0077B6", otherCardIcon: "#0077B6", otherCardIconBackground: "rgba(0,119,182,0.15)", },
+
+  { id: "naruto", name: "Naruto", bg: "#E6D7B9", my: "#F89C1C", other: "#49B9F2", wallpaper: "https://i.pinimg.com/736x/eb/76/90/eb7690967b22c0895a0a05aeb64d2e7b.jpg", button: "#F89C1C", buttonText: "#FFFFFF", myText: "#1B2A49", otherText: "#000000", normalText: "#000000", myCardBackground: "#F89C1C", myCardText: "#1B2A49", myCardLink: "#FFFFFF", myCardIcon: "#FFFFFF", myCardIconBackground: "rgba(255,255,255,0.25)", otherCardBackground: "#49B9F2", otherCardText: "#000000", otherCardLink: "#1B2A49", otherCardIcon: "#1B2A49", otherCardIconBackground: "rgba(27,42,73,0.18)", },
+
+  { id: "galaxy", name: "Galaxy", bg: "#0D1B2A", my: "#1B263B", other: "#415A77", wallpaper: "https://images.unsplash.com/photo-1444703686981-a3abbc4d4fe3?w=800", button: "#333943ff", buttonText: "#FFFFFF", myText: "#E0E0E0", otherText: "#E0E0E0", normalText: "#FFFFFF", myCardBackground: "#1B263B", myCardText: "#E0E0E0", myCardLink: "#5DA9E9", myCardIcon: "#5DA9E9", myCardIconBackground: "rgba(93,169,233,0.25)", otherCardBackground: "#415A77", otherCardText: "#E0E0E0", otherCardLink: "#9ACBFF", otherCardIcon: "#9ACBFF", otherCardIconBackground: "rgba(154,203,255,0.25)", },
+
+  { id: "rose", name: "Rose", bg: "#FFF0F5", my: "#FFB6C1", other: "#FFFFFF", wallpaper: null, button: "#FF69B4", buttonText: "#FFFFFF", myText: "#800020", otherText: "#000000", normalText: "#000000", myCardBackground: "#FFB6C1", myCardText: "#800020", myCardLink: "#FF69B4", myCardIcon: "#FF69B4", myCardIconBackground: "rgba(255,105,180,0.2)", otherCardBackground: "#FFFFFF", otherCardText: "#000000", otherCardLink: "#FF69B4", otherCardIcon: "#FF69B4", otherCardIconBackground: "rgba(255,105,180,0.12)", },
+
+  { id: "matrix", name: "Matrix", bg: "#000000", my: "#00FF41", other: "#0D0D0D", wallpaper: "https://wallpaperaccess.com/full/138728.jpg", button: "#00FF41", buttonText: "#000000", myText: "#333333", otherText: "#FFFFFF", normalText: "#E0E0E0", myCardBackground: "#00FF41", myCardText: "#003300", myCardLink: "#000000", myCardIcon: "#000000", myCardIconBackground: "rgba(0,0,0,0.25)", otherCardBackground: "#0D0D0D", otherCardText: "#FFFFFF", otherCardLink: "#00FF41", otherCardIcon: "#00FF41", otherCardIconBackground: "rgba(0,255,65,0.25)", },
 ];
 
 export default function ChatScreenThemeScreen() {
@@ -38,7 +45,7 @@ export default function ChatScreenThemeScreen() {
 
     try {
       const result = await ImagePicker.launchImageLibraryAsync({
-         mediaTypes: ['images'],
+        mediaTypes: ['images'],
         quality: 0.8,
       });
 
@@ -81,7 +88,19 @@ export default function ChatScreenThemeScreen() {
               t.buttonText === theme.buttonText &&
               t.myText === theme.myTextColor &&
               t.otherText === theme.otherTextColor &&
-              t.normalText === theme.textColor;
+              t.normalText === theme.textColor &&
+              t.myCardBackground === theme.myCardBg &&
+              t.myCardText === theme.myCardText &&
+              t.myCardLink === theme.myCardLink &&
+              t.myCardIcon === theme.myCardIconColor &&
+              t.myCardIconBackground === theme.myCardIconBg &&
+              t.otherCardBackground === theme.otherCardBg &&
+              t.otherCardText === theme.otherCardText &&
+              t.otherCardLink === theme.otherCardLink &&
+              t.otherCardIcon === theme.otherCardIconColor &&
+              t.otherCardIconBackground === theme.otherCardIconBg;
+
+      
 
             return (
               <TouchableOpacity
@@ -98,6 +117,17 @@ export default function ChatScreenThemeScreen() {
                     myTextColor: t.myText,
                     otherTextColor: t.otherText,
                     textColor: t.normalText,
+                    myCardBg: t.myCardBackground,
+                    myCardText: t.myCardText,
+                    myCardLink: t.myCardLink,
+                    myCardIconColor: t.myCardIcon,
+                    myCardIconBg: t.myCardIconBackground,
+                    otherCardBg: t.otherCardBackground,
+                    otherCardText: t.otherCardText,
+                    otherCardLink: t.otherCardLink,
+                    otherCardIconColor: t.otherCardIcon,
+                    otherCardIconBg: t.otherCardIconBackground,
+                    
                   })
                 }
               >

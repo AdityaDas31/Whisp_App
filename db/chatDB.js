@@ -86,28 +86,26 @@ export const saveMessage = async (msg, myUserId) => {
 
     const isMine = senderId === myUserId;
 
-    // 🔥 MEDIA HANDLING (LOCAL-FIRST)
+    //MEDIA HANDLING (LOCAL-FIRST)
     let media = null;
 
     if (msg.type === "media" && msg.media) {
         media = {
-            url: msg.media.url,              // Cloudinary (download only)
+            url: msg.media.url,
             publicId: msg.media.publicId,
             format: msg.media.format,
 
-            // 👇 KEY LOGIC
-            localUri: isMine ? msg.localUri || null : null,
+            localUri: isMine ? msg.media?.localUri || null : null,
         };
     }
+
 
     const row = {
         id: msg._id,
         chatId: msg.chatId || msg.chat?._id,
-        // senderId: typeof msg.sender === "object" ? msg.sender._id : msg.sender,
         senderId,
         type: msg.type,
         content: msg.content || null,
-        // media: msg.media ? JSON.stringify(msg.media) : null,
         media: media ? JSON.stringify(media) : null,
         extra: JSON.stringify({
             location: msg.location,

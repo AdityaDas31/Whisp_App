@@ -86,6 +86,7 @@ export default function RootLayout() {
                   name="ChatScreen"
                   options={{ headerShown: false }}
                 />
+
                 <Stack.Screen
                   name="SettingsScreen"
                   options={{ headerShown: false }}

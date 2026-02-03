@@ -70,6 +70,14 @@ export const ChatProvider = ({ children }) => {
       .catch(err => console.log("❌ SQLite init error", err));
   }, []);
 
+  const addLocalMessage = (chatId, message) => {
+    setMessages(prev => ({
+      ...prev,
+      [chatId]: [...(prev[chatId] || []), message],
+    }));
+  };
+
+
 
   // ---------------- SOCKET INIT ----------------
   useEffect(() => {
@@ -292,17 +300,109 @@ export const ChatProvider = ({ children }) => {
       let res;
 
       if (messageData.file) {
+        messageWriteInProgress.current = true;
+        const tempId = `temp-${Date.now()}`;
+
+        addLocalMessage(chatId, {
+          _id: tempId,
+          chatId,
+          sender: user._id,
+          type: "media",
+          media: {
+            localUri: messageData.localUri,
+            format: messageData.file.type.startsWith("video")
+              ? "video"
+              : "image",
+          },
+          status: "uploading",
+          progress: 0,
+          createdAt: new Date().toISOString(),
+        });
+
+        // 👇 upload continues below
         const formData = new FormData();
         formData.append("chatId", chatId);
         formData.append("type", "media");
         formData.append("file", messageData.file);
 
-        res = await axios.post(`${API_BASE_URL}/message/message`, formData, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "multipart/form-data",
+        const res = await axios.post(
+          `${API_BASE_URL}/message/message`,
+          formData,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+              "Content-Type": "multipart/form-data",
+            },
+            onUploadProgress: (e) => {
+              const percent = Math.round((e.loaded * 100) / e.total);
+
+              setMessages(prev => ({
+                ...prev,
+                [chatId]: prev[chatId].map(m =>
+                  m._id === tempId
+                    ? {
+                      ...m,
+                      progress: Math.max(m.progress || 0, Math.min(percent, 99)),
+                      status: "uploading",
+                    }
+                    : m
+                ),
+              }));
+            },
+
+          }
+        );
+
+        setMessages(prev => ({
+          ...prev,
+          [chatId]: prev[chatId].map(m =>
+            m._id === tempId
+              ? {
+                ...m,
+                status: "processing",
+                progress: 99,
+              }
+              : m
+          ),
+        }));
+
+        await new Promise(res => setTimeout(res, 150));
+
+        const realMsg = res.data.message;
+
+        // 🔥 REPLACE TEMP WITH REAL MESSAGE
+        setMessages(prev => ({
+          ...prev,
+          [chatId]: prev[chatId].map(m =>
+            m._id === tempId
+              ? {
+                ...realMsg,
+                media: {
+                  ...realMsg.media,
+                  localUri: messageData.localUri,
+                },
+                status: "sent",
+                progress: 100, // ✅ ONLY HERE
+              }
+              : m
+          ),
+        }));
+
+        // await saveMessage(realMsg, user._id);
+        await saveMessage(
+          {
+            ...realMsg,
+            media: {
+              ...realMsg.media,
+              localUri: messageData.localUri, // 🔥 persist sender's local file
+            },
           },
-        });
+          user._id
+        );
+
+        socket.emit("sendMessage", { messageId: realMsg._id });
+        messageWriteInProgress.current = false;
+        return true;
       } else {
         res = await axios.post(
           `${API_BASE_URL}/message/message`,
