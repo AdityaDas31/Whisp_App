@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   Image,
   StyleSheet,
+  ActivityIndicator,
 } from "react-native";
 import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
 import * as ImagePicker from "expo-image-picker";
@@ -15,7 +16,8 @@ import { useNavigation } from "@react-navigation/native";
 import { useAuth } from "../context/AuthContext"; // ✅ import AuthContext
 
 export default function RegisterScreen() {
-  const { registerWithEmail, registerWithPhone, verifyOtp, loading } = useAuth();
+  const { registerWithEmail, registerWithPhone, verifyOtp, loading } =
+    useAuth();
   const navigation = useNavigation();
 
   const [countryCode, setCountryCode] = useState("IN");
@@ -31,10 +33,11 @@ export default function RegisterScreen() {
   const [otp, setOtp] = useState("");
   let refs = [];
 
+  const [selectedOtpMethod, setSelectedOtpMethod] = useState(null);
   // Pick profile image
   const pickImage = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
-       mediaTypes: ['images'],
+      mediaTypes: ["images"],
       allowsEditing: true,
       aspect: [1, 1],
       quality: 0.7,
@@ -48,28 +51,21 @@ export default function RegisterScreen() {
   // Send OTP
   const handleSendOtp = async (type) => {
     try {
+      setSelectedOtpMethod(type);
+
+      const payload = {
+        name: fullName,
+        email,
+        password,
+        phoneNumber: phone,
+        countryCode: callingCode,
+        profileImage,
+      };
+
       if (type === "email") {
-        const payload = {
-          name: fullName,
-          email,
-          password,
-          phoneNumber: phone,
-          countryCode: callingCode,
-          profileImage,
-        };
-        console.log("Sending Email OTP request with data:", payload);
         await registerWithEmail(payload);
         setOtpType("email");
       } else {
-        const payload = {
-          name: fullName,
-          email,
-          password,
-          phoneNumber: phone,
-          countryCode: callingCode,
-          profileImage,
-        };
-        console.log("Sending Phone OTP request with data:", payload);
         await registerWithPhone(payload);
         setOtpType("phone");
       }
@@ -77,11 +73,10 @@ export default function RegisterScreen() {
       setShowOtpForm(true);
       alert("OTP sent successfully!");
     } catch (err) {
-      console.error("Error while sending OTP:", err);
+      setSelectedOtpMethod(null); // reset on error
       alert(err.message || "Failed to send OTP");
     }
   };
-
 
   // Verify OTP
   const handleVerifyOtp = async () => {
@@ -110,6 +105,8 @@ export default function RegisterScreen() {
       contentContainerStyle={styles.container}
       enableOnAndroid={true}
       extraScrollHeight={20}
+      keyboardShouldPersistTaps="handled"
+
     >
       {!showOtpForm ? (
         <>
@@ -122,7 +119,8 @@ export default function RegisterScreen() {
 
           <Text style={styles.heading}>Create Your Account</Text>
           <Text style={styles.welcomeText}>
-            Thank you for choosing <Text style={styles.highlight}>Whisp</Text>.{"\n"}
+            Thank you for choosing <Text style={styles.highlight}>Whisp</Text>.
+            {"\n"}
             Let’s get you started with your new account.
           </Text>
 
@@ -172,7 +170,10 @@ export default function RegisterScreen() {
             {/* Password */}
             <View style={styles.passwordContainer}>
               <TextInput
-                style={[styles.input, { flex: 1, marginBottom: 0, borderWidth: 0 }]}
+                style={[
+                  styles.input,
+                  { flex: 1, marginBottom: 0, borderWidth: 0 },
+                ]}
                 placeholder="Password"
                 secureTextEntry={!showPassword}
                 value={password}
@@ -195,29 +196,39 @@ export default function RegisterScreen() {
 
           {/* Send OTP */}
           <View style={styles.otpButton}>
-            <TouchableOpacity
-              style={styles.button}
-              onPress={() => handleSendOtp("email")}
-              disabled={loading}
-            >
-              <Text style={styles.buttonText}>
-                {loading ? "Sending..." : "Send In Email"}
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.button}
-              onPress={() => handleSendOtp("phone")}
-              disabled={loading}
-            >
-              <Text style={styles.buttonText}>
-                {loading ? "Sending..." : "Send In Phone"}
-              </Text>
-            </TouchableOpacity>
+            {(selectedOtpMethod === null || selectedOtpMethod === "email") && (
+              <TouchableOpacity
+                style={styles.button}
+                onPress={() => handleSendOtp("email")}
+                disabled={loading}
+              >
+                {loading && selectedOtpMethod === "email" ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <Text style={styles.buttonText}>Send In Email</Text>
+                )}
+              </TouchableOpacity>
+            )}
+
+            {(selectedOtpMethod === null || selectedOtpMethod === "phone") && (
+              <TouchableOpacity
+                style={styles.button}
+                onPress={() => handleSendOtp("phone")}
+                disabled={loading}
+              >
+                {loading && selectedOtpMethod === "phone" ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <Text style={styles.buttonText}>Send In Phone</Text>
+                )}
+              </TouchableOpacity>
+            )}
           </View>
 
           <TouchableOpacity onPress={() => navigation.navigate("LoginScreen")}>
             <Text style={styles.loginLink}>
-              Already have an account? <Text style={styles.highlight}>Login</Text>
+              Already have an account?{" "}
+              <Text style={styles.highlight}>Login</Text>
             </Text>
           </TouchableOpacity>
         </>
@@ -235,27 +246,33 @@ export default function RegisterScreen() {
           </Text>
 
           <View style={styles.otpContainer}>
-            {Array(4).fill().map((_, index) => (
-              <TextInput
-                key={index}
-                style={styles.otpInput}
-                keyboardType="number-pad"
-                maxLength={1}
-                value={otp[index] || ""}
-                onChangeText={(value) => {
-                  let otpArray = otp.split("");
-                  otpArray[index] = value;
-                  setOtp(otpArray.join(""));
-                  if (value && index < 3) refs[index + 1].focus();
-                }}
-                onKeyPress={({ nativeEvent }) => {
-                  if (nativeEvent.key === "Backspace" && index > 0 && !otp[index]) {
-                    refs[index - 1].focus();
-                  }
-                }}
-                ref={(ref) => (refs[index] = ref)}
-              />
-            ))}
+            {Array(4)
+              .fill()
+              .map((_, index) => (
+                <TextInput
+                  key={index}
+                  style={styles.otpInput}
+                  keyboardType="number-pad"
+                  maxLength={1}
+                  value={otp[index] || ""}
+                  onChangeText={(value) => {
+                    let otpArray = otp.split("");
+                    otpArray[index] = value;
+                    setOtp(otpArray.join(""));
+                    if (value && index < 3) refs[index + 1].focus();
+                  }}
+                  onKeyPress={({ nativeEvent }) => {
+                    if (
+                      nativeEvent.key === "Backspace" &&
+                      index > 0 &&
+                      !otp[index]
+                    ) {
+                      refs[index - 1].focus();
+                    }
+                  }}
+                  ref={(ref) => (refs[index] = ref)}
+                />
+              ))}
           </View>
 
           <TouchableOpacity
@@ -264,11 +281,16 @@ export default function RegisterScreen() {
             disabled={loading}
           >
             <Text style={styles.buttonText}>
-              {loading ? "Verifying..." : "Verify OTP"}
+              {loading ? <ActivityIndicator color="#fff" /> : "Verify OTP"}
             </Text>
           </TouchableOpacity>
 
-          <TouchableOpacity onPress={() => setShowOtpForm(false)}>
+          <TouchableOpacity
+            onPress={() => {
+              setShowOtpForm(false);
+              setSelectedOtpMethod(null);
+            }}
+          >
             <Text style={styles.loginLink}>Back to Registration</Text>
           </TouchableOpacity>
         </>
@@ -404,5 +426,4 @@ const styles = StyleSheet.create({
     marginHorizontal: 5,
     backgroundColor: "#fff",
   },
-
 });
