@@ -23,7 +23,12 @@ function ChatMediaBubble({
                 () => setAspectRatio(1)
             );
         }
+
     }, [uri, type]);
+
+    if (!uri) {
+        return null; // or loader
+    }
 
     return (
         <View style={styles.mediaBubble}>

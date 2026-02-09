@@ -27,6 +27,7 @@ import {
     TextInput,
     TouchableOpacity,
     View,
+    KeyboardAvoidingView
 } from "react-native";
 import { KeyboardAwareFlatList } from "react-native-keyboard-aware-scroll-view";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -247,10 +248,10 @@ export default function ChatScreen() {
 
                 case "location":
                     return (
-                        <View style={[styles.locationCard, {backgroundColor: cardsBackground}]} pointerEvents={isSelectionMode ? "none" : "auto"}>
+                        <View style={[styles.locationCard, { backgroundColor: cardsBackground }]} pointerEvents={isSelectionMode ? "none" : "auto"}>
                             <View style={styles.locationHeader}>
-                                <View style={[styles.locationIconWrap, {backgroundColor: cardIconBg}]}>
-                                    <Ionicons name="location" size={18} style= {{color: cardIconColor}} />
+                                <View style={[styles.locationIconWrap, { backgroundColor: cardIconBg }]}>
+                                    <Ionicons name="location" size={18} style={{ color: cardIconColor }} />
                                 </View>
 
                                 <View style={{ flex: 1 }}>
@@ -267,8 +268,8 @@ export default function ChatScreen() {
                             </View>
 
                             <View style={styles.locationFooter}>
-                                <Ionicons name="map-outline" size={14} style= {{color: cardIconColor}} />
-                                <Text style={[styles.locationLink, {color: cardLinkColor}]} numberOfLines={1}>
+                                <Ionicons name="map-outline" size={14} style={{ color: cardIconColor }} />
+                                <Text style={[styles.locationLink, { color: cardLinkColor }]} numberOfLines={1}>
                                     {message.location?.link}
                                 </Text>
                             </View>
@@ -382,26 +383,27 @@ export default function ChatScreen() {
                     );
 
                 case "media": {
-                    const localUri = message.media?.localUri;
                     const format = message.media?.format;
                     const isVideo = format === "video";
+                    const localUri = message.media?.localUri;
+                    const remoteUri = message.media?.url;
 
-                    // 🔐 SAFETY GUARD (IMPORTANT)
-                    if (isVideo && (!localUri || typeof localUri !== "string")) {
+                    if (!localUri) {
                         return (
                             <BlurredMediaPreview
-                                thumbnailUri={message.media?.url}
+                                thumbnailUri={message.media?.thumbnail || remoteUri}
                                 progress={downloadProgress[message._id] || 0}
                                 onDownload={() =>
                                     downloadMediaToWhisp({
-                                        uri: message.media.url,
-                                        type: "video",
+                                        uri: remoteUri,
+                                        type: format,
                                         messageId: message._id,
                                     })
                                 }
                             />
                         );
                     }
+
 
                     return (
                         <ChatMediaBubble
@@ -532,6 +534,7 @@ export default function ChatScreen() {
 
     const openCamera = async () => {
         // Request camera permission
+        Keyboard.dismiss();
         const { status } = await ImagePicker.requestCameraPermissionsAsync()
         if (status !== "granted") {
             alert("Camera permission is required to use this feature.");
@@ -571,6 +574,7 @@ export default function ChatScreen() {
 
     const handleAttachmentPress = async (type) => {
         console.log("Selected attachment type:", type);
+        Keyboard.dismiss();
         setShowAttachModal(false);
         if (type === "location") {
             const { status } = await Location.requestForegroundPermissionsAsync();
@@ -643,11 +647,15 @@ export default function ChatScreen() {
 
 
 
-    const videoPlayer = previewMedia?.type === "video"
-        ? useVideoPlayer(previewMedia.uri, (player) => {
-            player.loop = false;
-        })
-        : null;
+    const videoPlayer = useVideoPlayer(
+        previewMedia?.type === "video" ? previewMedia.uri : null,
+        (player) => {
+            if (previewMedia?.type === "video") {
+                player.loop = false;
+            }
+        }
+    );
+
 
 
     const addPollOption = () => setPollOptions([...pollOptions, ""]);
@@ -827,6 +835,14 @@ export default function ChatScreen() {
         };
     }, [fullscreenMedia]);
 
+    useEffect(() => {
+        if (chatMessages.length > 0) {
+            requestAnimationFrame(() => {
+                flatListRef.current?.scrollToEnd({ animated: false });
+            });
+        }
+    }, [chatId]);
+
 
     // Fullscreen viewer derived data
     const fullscreenMsg = fullscreenMedia?.message;
@@ -847,14 +863,15 @@ export default function ChatScreen() {
         : "";
 
     const focusInputSafely = () => {
-        setTimeout(() => {
+        requestAnimationFrame(() => {
             inputRef.current?.focus();
-        }, 100);
+        });
     };
 
 
+
     return (
-        <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.backgroundColor }]} edges={["top"]}>
+        <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.backgroundColor }]} edges={["top", "bottom"]}>
             <StatusBar
                 backgroundColor={theme.backgroundColor}
                 barStyle={isColorLight(theme.textColor) ? "light-content" : "dark-content"}
@@ -945,7 +962,12 @@ export default function ChatScreen() {
                     data={chatMessages}
                     keyExtractor={(item) => item._id}
                     renderItem={renderItem}
-                    contentContainerStyle={{ paddingVertical: 8, paddingBottom: 8, }}
+                    contentContainerStyle={{
+                        paddingTop: 8,
+                        paddingBottom: 8,
+                        flexGrow: 1,
+                        justifyContent: "flex-end",
+                    }}
                     enableOnAndroid
                     keyboardShouldPersistTaps="handled"
                     enableAutomaticScroll={false}
@@ -956,56 +978,113 @@ export default function ChatScreen() {
 
 
                 {/* Input */}
-                <View style={[styles.inputContainer, { backgroundColor: theme.backgroundColor }]}>
-                    {/* Emoji / Keyboard Toggle */}
-
-                    <TouchableOpacity style={styles.iconLeft} onPress={toggleEmojiKeyboard}>
-                        {showEmoji ? <Entypo name="keyboard" size={24} color="#555" /> : <Ionicons name="happy-outline" size={24} color="#555" />}
-                    </TouchableOpacity>
-
-                    {/* TextInput */}
-                    <TextInput
-                        ref={inputRef}
-                        style={styles.inputWithIcons}
-                        value={text}
-                        onChangeText={handleChange}
-                        placeholder="Type a message..."
-                        placeholderTextColor="#A1A1A1"
-                        multiline
-                    />
-
-                    {showPopup && (
-                        <Animated.View style={[styles.popup, { opacity: popupAnim }]}>
-                            <Text>Calculate this expression?</Text>
-                            <TouchableOpacity onPress={handleCalculate} style={styles.button}>
-                                <Text style={{ color: "white" }}>Yes</Text>
-                            </TouchableOpacity>
-                            <TouchableOpacity onPress={() => setShowPopup(false)} style={[styles.button, { backgroundColor: "gray" }]}>
-                                <Text style={{ color: "white" }}>No</Text>
-                            </TouchableOpacity>
-                        </Animated.View>
-                    )}
-
-                    {/* Paperclip */}
-                    <TouchableOpacity
-                        style={[styles.attachIcon, { right: text.length > 0 || showEmoji ? 70 : 100 }]}
-                        onPress={() => setShowAttachModal(true)}
+                {Platform.OS === "ios" ? (
+                    <KeyboardAvoidingView
+                        behavior="padding"
                     >
-                        <Ionicons name="attach-outline" size={24} color="#555" />
-                    </TouchableOpacity>
+                        <View style={[styles.inputContainer, { backgroundColor: theme.backgroundColor }]}>
+                            {/* Emoji / Keyboard Toggle */}
 
-                    {/* Camera */}
-                    {!text.length && !showEmoji && (
-                        <TouchableOpacity style={styles.iconRight} onPress={openCamera}>
-                            <Ionicons name="camera-outline" size={24} color="#555" />
+                            <TouchableOpacity style={styles.iconLeft} onPress={toggleEmojiKeyboard}>
+                                {showEmoji ? <Entypo name="keyboard" size={24} color="#555" /> : <Ionicons name="happy-outline" size={24} color="#555" />}
+                            </TouchableOpacity>
+
+                            {/* TextInput */}
+                            <TextInput
+                                ref={inputRef}
+                                style={styles.inputWithIcons}
+                                value={text}
+                                onChangeText={handleChange}
+                                placeholder="Type a message..."
+                                placeholderTextColor="#A1A1A1"
+                                multiline
+                            />
+
+                            {showPopup && (
+                                <Animated.View style={[styles.popup, { opacity: popupAnim }]}>
+                                    <Text>Calculate this expression?</Text>
+                                    <TouchableOpacity onPress={handleCalculate} style={styles.button}>
+                                        <Text style={{ color: "white" }}>Yes</Text>
+                                    </TouchableOpacity>
+                                    <TouchableOpacity onPress={() => setShowPopup(false)} style={[styles.button, { backgroundColor: "gray" }]}>
+                                        <Text style={{ color: "white" }}>No</Text>
+                                    </TouchableOpacity>
+                                </Animated.View>
+                            )}
+
+                            {/* Paperclip */}
+                            <TouchableOpacity
+                                style={[styles.attachIcon, { right: text.length > 0 || showEmoji ? 70 : 100 }]}
+                                onPress={() => setShowAttachModal(true)}
+                            >
+                                <Ionicons name="attach-outline" size={24} color="#555" />
+                            </TouchableOpacity>
+
+                            {/* Camera */}
+                            {!text.length && !showEmoji && (
+                                <TouchableOpacity style={styles.iconRight} onPress={openCamera}>
+                                    <Ionicons name="camera-outline" size={24} color="#555" />
+                                </TouchableOpacity>
+                            )}
+
+                            {/* Send */}
+                            <TouchableOpacity onPress={handleSend} style={[styles.sendButton, { backgroundColor: theme.buttonBg }]}>
+                                <Ionicons name="send" size={20} style={{ color: theme.buttonText }} />
+                            </TouchableOpacity>
+                        </View>
+                    </KeyboardAvoidingView>
+                ) : (
+                    <View style={[styles.inputContainer, { backgroundColor: theme.backgroundColor }]}>
+                        {/* Emoji / Keyboard Toggle */}
+
+                        <TouchableOpacity style={styles.iconLeft} onPress={toggleEmojiKeyboard}>
+                            {showEmoji ? <Entypo name="keyboard" size={24} color="#555" /> : <Ionicons name="happy-outline" size={24} color="#555" />}
                         </TouchableOpacity>
-                    )}
 
-                    {/* Send */}
-                    <TouchableOpacity onPress={handleSend} style={[styles.sendButton, { backgroundColor: theme.buttonBg }]}>
-                        <Ionicons name="send" size={20} style={{ color: theme.buttonText }} />
-                    </TouchableOpacity>
-                </View>
+                        {/* TextInput */}
+                        <TextInput
+                            ref={inputRef}
+                            style={styles.inputWithIcons}
+                            value={text}
+                            onChangeText={handleChange}
+                            placeholder="Type a message..."
+                            placeholderTextColor="#A1A1A1"
+                            multiline
+                        />
+
+                        {showPopup && (
+                            <Animated.View style={[styles.popup, { opacity: popupAnim }]}>
+                                <Text>Calculate this expression?</Text>
+                                <TouchableOpacity onPress={handleCalculate} style={styles.button}>
+                                    <Text style={{ color: "white" }}>Yes</Text>
+                                </TouchableOpacity>
+                                <TouchableOpacity onPress={() => setShowPopup(false)} style={[styles.button, { backgroundColor: "gray" }]}>
+                                    <Text style={{ color: "white" }}>No</Text>
+                                </TouchableOpacity>
+                            </Animated.View>
+                        )}
+
+                        {/* Paperclip */}
+                        <TouchableOpacity
+                            style={[styles.attachIcon, { right: text.length > 0 || showEmoji ? 70 : 100 }]}
+                            onPress={() => setShowAttachModal(true)}
+                        >
+                            <Ionicons name="attach-outline" size={24} color="#555" />
+                        </TouchableOpacity>
+
+                        {/* Camera */}
+                        {!text.length && !showEmoji && (
+                            <TouchableOpacity style={styles.iconRight} onPress={openCamera}>
+                                <Ionicons name="camera-outline" size={24} color="#555" />
+                            </TouchableOpacity>
+                        )}
+
+                        {/* Send */}
+                        <TouchableOpacity onPress={handleSend} style={[styles.sendButton, { backgroundColor: theme.buttonBg }]}>
+                            <Ionicons name="send" size={20} style={{ color: theme.buttonText }} />
+                        </TouchableOpacity>
+                    </View>
+                )}
 
                 {/* Custom Emoji Keyboard */}
                 {showEmoji && (
