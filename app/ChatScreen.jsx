@@ -1,5 +1,4 @@
 
-import { useRoute } from "@react-navigation/native";
 import { useEffect, useRef, useState } from "react";
 
 import * as Contacts from "expo-contacts";
@@ -8,7 +7,8 @@ import * as Haptics from "expo-haptics";
 import * as ImagePicker from "expo-image-picker";
 import * as Location from "expo-location";
 import * as MediaLibrary from "expo-media-library";
-import { VideoView, useVideoPlayer } from "expo-video";
+import { useLocalSearchParams } from "expo-router";
+import { useVideoPlayer } from "expo-video";
 
 import { Entypo, Ionicons } from "@expo/vector-icons";
 import {
@@ -17,6 +17,7 @@ import {
     Animated,
     Image,
     Keyboard,
+    KeyboardAvoidingView,
     Linking,
     Platform,
     Pressable,
@@ -26,8 +27,9 @@ import {
     Text,
     TextInput,
     TouchableOpacity,
+    useWindowDimensions,
     View,
-    KeyboardAvoidingView
+    Dimensions,
 } from "react-native";
 import { KeyboardAwareFlatList } from "react-native-keyboard-aware-scroll-view";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -37,15 +39,19 @@ import { useChats } from "../context/ChatContext";
 import { useChatTheme } from "../context/ChatThemeContext";
 
 import AttachModal from "../components/AttachModal";
+import ChatMediaBubble from "../components/ChatMediaBubble";
 import ContactsModal from "../components/ContactsModal";
 import MediaPreviewModal from "../components/MediaPreviewModal";
 import MediaViewerModal from "../components/MediaViewerModal";
 import PollModal from "../components/PollModal";
 import ProfileModal from "../components/ProfileModal";
-import ChatMediaBubble from "../components/ChatMediaBubble";
 
 import { evaluate } from "mathjs";
 import { updateMessageLocalUri } from "../db/chatDB";
+
+const { width: SCREEN_WIDTH } = Dimensions.get("window");
+
+// Responsive sizes are derived per-render using `useWindowDimensions()` inside the component.
 
 // Small helper data and constants
 const emojis = [
@@ -88,8 +94,7 @@ const BlurredMediaPreview = ({ thumbnailUri, progress, onDownload }) => (
 
 
 export default function ChatScreen() {
-    const route = useRoute();
-    const { chatId, name, profileImage, userId, myId } = route.params;
+    const { chatId, name, profileImage, userId, myId } = useLocalSearchParams();
     const { user } = useAuth();
     const { sendMessage, messages, joinChat, userStatus, socket, leaveChat, fetchChats, loadLocalMessages } = useChats();
 
@@ -121,6 +126,15 @@ export default function ChatScreen() {
 
     const [showViewerControls, setShowViewerControls] = useState(true);
     const controlsTimeoutRef = useRef(null);
+
+
+    // Responsive measurements
+    const { width: windowWidth, height: windowHeight } = useWindowDimensions();
+    const isTablet = windowWidth >= 768;
+    const avatarSize = isTablet ? 56 : 42;
+    const headerFontSize = isTablet ? 20 : 18;
+    const emojiHeight = Math.min(360, windowHeight * 0.45);
+    const blurredPreviewSize = Math.min(420, windowWidth * 0.6);
 
 
     const fullscreenPlayer = useVideoPlayer(
@@ -157,6 +171,9 @@ export default function ChatScreen() {
     useEffect(() => {
         joinChat(chatId);
         loadLocalMessages(chatId);
+        if (!name && chatId) {
+            loadLocalMessages(chatId);
+        }
         return () => {
             leaveChat();
             fetchChats(); // refresh unread count
@@ -174,17 +191,6 @@ export default function ChatScreen() {
 
     const chatMessages = messages[chatId] || [];
     const prevMessageCount = useRef(chatMessages.length);
-
-    useEffect(() => {
-        if (chatMessages.length > prevMessageCount.current) {
-            requestAnimationFrame(() => {
-                flatListRef.current?.scrollToEnd({ animated: true });
-            });
-        }
-
-        prevMessageCount.current = chatMessages.length;
-    }, [chatMessages.length]);
-
 
 
 
@@ -590,6 +596,9 @@ export default function ChatScreen() {
                     link: `https://www.google.com/maps?q=${location.coords.latitude},${location.coords.longitude}`
                 }
             });
+            setTimeout(() => {
+                inputRef.current?.focus();
+            }, 100);
             focusInputSafely();
         }
 
@@ -617,6 +626,9 @@ export default function ChatScreen() {
             } else {
                 alert("No contacts found on device!");
             }
+            setTimeout(() => {
+                inputRef.current?.focus();
+            }, 100);
             focusInputSafely();
 
         }
@@ -625,6 +637,9 @@ export default function ChatScreen() {
         if (type === "poll") {
             // Open poll modal
             setShowPollModal(true);
+            setTimeout(() => {
+                inputRef.current?.focus();
+            }, 100);
             focusInputSafely();
         }
 
@@ -671,6 +686,9 @@ export default function ChatScreen() {
             type: "poll",
             poll: { topic: pollTopic, options: pollOptions },
         });
+        setTimeout(() => {
+            inputRef.current?.focus();
+        }, 100);
     };
 
 
@@ -835,13 +853,6 @@ export default function ChatScreen() {
         };
     }, [fullscreenMedia]);
 
-    useEffect(() => {
-        if (chatMessages.length > 0) {
-            requestAnimationFrame(() => {
-                flatListRef.current?.scrollToEnd({ animated: false });
-            });
-        }
-    }, [chatId]);
 
 
     // Fullscreen viewer derived data
@@ -915,11 +926,22 @@ export default function ChatScreen() {
                 /* ✅ Normal Chat Header */
                 <View style={[styles.header, { backgroundColor: theme.backgroundColor }]}>
                     <TouchableOpacity style={styles.headerLeft} onPress={() => setProfileVisible(true)}>
-                        <Image source={{ uri: profileImage }} style={styles.headerImage} />
+                        <Image
+                            source={{ uri: profileImage }}
+                            style={[
+                                styles.headerImage,
+                                {
+                                    width: avatarSize,
+                                    height: avatarSize,
+                                    borderRadius: avatarSize / 2,
+                                    marginRight: isTablet ? 16 : 12,
+                                },
+                            ]}
+                        />
 
                         {/* Name + Status stacked vertically */}
                         <View style={{ flexDirection: "column" }}>
-                            <Text style={[styles.headerName, { color: theme.textColor }]}>{name}</Text>
+                            <Text style={[styles.headerName, { color: theme.textColor, fontSize: headerFontSize }]}>{name}</Text>
 
                             <View style={{ flexDirection: "row", alignItems: "center", marginTop: 2 }}>
                                 {userStatus[userId]?.online ? (
@@ -958,137 +980,80 @@ export default function ChatScreen() {
             {/* Messages + Input */}
             <View style={{ flex: 1, }}>
                 <KeyboardAwareFlatList
+                    inverted
                     ref={flatListRef}
-                    data={chatMessages}
+                    data={[...chatMessages].reverse()}
                     keyExtractor={(item) => item._id}
                     renderItem={renderItem}
                     contentContainerStyle={{
                         paddingTop: 8,
                         paddingBottom: 8,
-                        flexGrow: 1,
-                        justifyContent: "flex-end",
                     }}
                     enableOnAndroid
+                    enableAutomaticScroll
                     keyboardShouldPersistTaps="handled"
-                    enableAutomaticScroll={false}
                     keyboardOpeningTime={0}
-                    extraScrollHeight={12}
+                    extraScrollHeight={Platform.OS === "ios" ? 20 : 80}
                     extraHeight={0}
                 />
 
 
                 {/* Input */}
-                {Platform.OS === "ios" ? (
-                    <KeyboardAvoidingView
-                        behavior="padding"
+                <View style={[styles.inputContainer, { backgroundColor: theme.backgroundColor }]}>
+                    {/* Emoji / Keyboard Toggle */}
+
+                    <TouchableOpacity style={styles.iconLeft} onPress={toggleEmojiKeyboard}>
+                        {showEmoji ? <Entypo name="keyboard" size={24} color="#555" /> : <Ionicons name="happy-outline" size={24} color="#555" />}
+                    </TouchableOpacity>
+
+                    {/* TextInput */}
+                    <TextInput
+                        ref={inputRef}
+                        style={styles.inputWithIcons}
+                        value={text}
+                        onChangeText={handleChange}
+                        placeholder="Type a message..."
+                        placeholderTextColor="#A1A1A1"
+                        multiline
+                    />
+
+                    {showPopup && (
+                        <Animated.View style={[styles.popup, { opacity: popupAnim }]}>
+                            <Text>Calculate this expression?</Text>
+                            <TouchableOpacity onPress={handleCalculate} style={styles.button}>
+                                <Text style={{ color: "white" }}>Yes</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity onPress={() => setShowPopup(false)} style={[styles.button, { backgroundColor: "gray" }]}>
+                                <Text style={{ color: "white" }}>No</Text>
+                            </TouchableOpacity>
+                        </Animated.View>
+                    )}
+
+                    {/* Paperclip */}
+                    <TouchableOpacity
+                        style={[styles.attachIcon, { right: text.length > 0 || showEmoji ? 70 : 100 }]}
+                        onPress={() => setShowAttachModal(true)}
                     >
-                        <View style={[styles.inputContainer, { backgroundColor: theme.backgroundColor }]}>
-                            {/* Emoji / Keyboard Toggle */}
+                        <Ionicons name="attach-outline" size={24} color="#555" />
+                    </TouchableOpacity>
 
-                            <TouchableOpacity style={styles.iconLeft} onPress={toggleEmojiKeyboard}>
-                                {showEmoji ? <Entypo name="keyboard" size={24} color="#555" /> : <Ionicons name="happy-outline" size={24} color="#555" />}
-                            </TouchableOpacity>
-
-                            {/* TextInput */}
-                            <TextInput
-                                ref={inputRef}
-                                style={styles.inputWithIcons}
-                                value={text}
-                                onChangeText={handleChange}
-                                placeholder="Type a message..."
-                                placeholderTextColor="#A1A1A1"
-                                multiline
-                            />
-
-                            {showPopup && (
-                                <Animated.View style={[styles.popup, { opacity: popupAnim }]}>
-                                    <Text>Calculate this expression?</Text>
-                                    <TouchableOpacity onPress={handleCalculate} style={styles.button}>
-                                        <Text style={{ color: "white" }}>Yes</Text>
-                                    </TouchableOpacity>
-                                    <TouchableOpacity onPress={() => setShowPopup(false)} style={[styles.button, { backgroundColor: "gray" }]}>
-                                        <Text style={{ color: "white" }}>No</Text>
-                                    </TouchableOpacity>
-                                </Animated.View>
-                            )}
-
-                            {/* Paperclip */}
-                            <TouchableOpacity
-                                style={[styles.attachIcon, { right: text.length > 0 || showEmoji ? 70 : 100 }]}
-                                onPress={() => setShowAttachModal(true)}
-                            >
-                                <Ionicons name="attach-outline" size={24} color="#555" />
-                            </TouchableOpacity>
-
-                            {/* Camera */}
-                            {!text.length && !showEmoji && (
-                                <TouchableOpacity style={styles.iconRight} onPress={openCamera}>
-                                    <Ionicons name="camera-outline" size={24} color="#555" />
-                                </TouchableOpacity>
-                            )}
-
-                            {/* Send */}
-                            <TouchableOpacity onPress={handleSend} style={[styles.sendButton, { backgroundColor: theme.buttonBg }]}>
-                                <Ionicons name="send" size={20} style={{ color: theme.buttonText }} />
-                            </TouchableOpacity>
-                        </View>
-                    </KeyboardAvoidingView>
-                ) : (
-                    <View style={[styles.inputContainer, { backgroundColor: theme.backgroundColor }]}>
-                        {/* Emoji / Keyboard Toggle */}
-
-                        <TouchableOpacity style={styles.iconLeft} onPress={toggleEmojiKeyboard}>
-                            {showEmoji ? <Entypo name="keyboard" size={24} color="#555" /> : <Ionicons name="happy-outline" size={24} color="#555" />}
+                    {/* Camera */}
+                    {!text.length && !showEmoji && (
+                        <TouchableOpacity style={styles.iconRight} onPress={openCamera}>
+                            <Ionicons name="camera-outline" size={24} color="#555" />
                         </TouchableOpacity>
+                    )}
 
-                        {/* TextInput */}
-                        <TextInput
-                            ref={inputRef}
-                            style={styles.inputWithIcons}
-                            value={text}
-                            onChangeText={handleChange}
-                            placeholder="Type a message..."
-                            placeholderTextColor="#A1A1A1"
-                            multiline
-                        />
+                    {/* Send */}
+                    <TouchableOpacity onPress={handleSend} style={[styles.sendButton, { backgroundColor: theme.buttonBg }]}>
+                        <Ionicons name="send" size={20} style={{ color: theme.buttonText }} />
+                    </TouchableOpacity>
+                </View>
 
-                        {showPopup && (
-                            <Animated.View style={[styles.popup, { opacity: popupAnim }]}>
-                                <Text>Calculate this expression?</Text>
-                                <TouchableOpacity onPress={handleCalculate} style={styles.button}>
-                                    <Text style={{ color: "white" }}>Yes</Text>
-                                </TouchableOpacity>
-                                <TouchableOpacity onPress={() => setShowPopup(false)} style={[styles.button, { backgroundColor: "gray" }]}>
-                                    <Text style={{ color: "white" }}>No</Text>
-                                </TouchableOpacity>
-                            </Animated.View>
-                        )}
-
-                        {/* Paperclip */}
-                        <TouchableOpacity
-                            style={[styles.attachIcon, { right: text.length > 0 || showEmoji ? 70 : 100 }]}
-                            onPress={() => setShowAttachModal(true)}
-                        >
-                            <Ionicons name="attach-outline" size={24} color="#555" />
-                        </TouchableOpacity>
-
-                        {/* Camera */}
-                        {!text.length && !showEmoji && (
-                            <TouchableOpacity style={styles.iconRight} onPress={openCamera}>
-                                <Ionicons name="camera-outline" size={24} color="#555" />
-                            </TouchableOpacity>
-                        )}
-
-                        {/* Send */}
-                        <TouchableOpacity onPress={handleSend} style={[styles.sendButton, { backgroundColor: theme.buttonBg }]}>
-                            <Ionicons name="send" size={20} style={{ color: theme.buttonText }} />
-                        </TouchableOpacity>
-                    </View>
-                )}
 
                 {/* Custom Emoji Keyboard */}
                 {showEmoji && (
-                    <View style={styles.emojiContainer}>
+                    <View style={[styles.emojiContainer, { height: emojiHeight }]}>
                         <ScrollView
                             showsVerticalScrollIndicator={false}
                             contentContainerStyle={styles.emojiGrid}
@@ -1186,6 +1151,9 @@ export default function ChatScreen() {
                             type: `${previewMedia.type}/${previewMedia.type === "video" ? "mp4" : "jpeg"}`,
                         },
                     });
+                    setTimeout(() => {
+                        inputRef.current?.focus();
+                    }, 100);
                 }}
 
 
@@ -1240,7 +1208,7 @@ const styles = StyleSheet.create({
         marginVertical: 4,
         marginHorizontal: 8,
     },
-    myWrapper: { justifyContent: "flex-end" },
+    myWrapper: { justifyContent: "flex-end", },
     otherWrapper: { justifyContent: "flex-start" },
     messageBubble: {
         maxWidth: "80%",
@@ -1255,7 +1223,7 @@ const styles = StyleSheet.create({
     locationCard: {
         padding: 12,
         borderRadius: 16,
-        maxWidth: 260,
+        maxWidth: "100%",
         backgroundColor: "#FFFFFF",
         shadowColor: "#000",
         shadowOpacity: 0.08,
@@ -1309,7 +1277,7 @@ const styles = StyleSheet.create({
     contactCard: {
         padding: 14,
         borderRadius: 16,
-        maxWidth: 260,
+        minWidth: "80%",
         backgroundColor: "#FFFFFF",
         shadowColor: "#000",
         shadowOpacity: 0.08,
@@ -1370,7 +1338,7 @@ const styles = StyleSheet.create({
     pollCard: {
         padding: 14,
         borderRadius: 16,
-        width: "100%",
+        minWidth: "100%",
         backgroundColor: "#FFFFFF",
         shadowColor: "#000",
         shadowOpacity: 0.08,
@@ -1395,6 +1363,7 @@ const styles = StyleSheet.create({
         marginBottom: 10,
         borderRadius: 12,
         overflow: "hidden",
+
     },
 
     pollOptionSelected: {
@@ -1460,28 +1429,6 @@ const styles = StyleSheet.create({
         fontWeight: "500",
         textAlign: "center",
     },
-
-    // media
-
-    mediaBubble: {
-        maxWidth: 280,
-        borderRadius: 14,
-        overflow: "hidden",
-        backgroundColor: "#000",
-        shadowColor: "#000",
-        shadowOpacity: 0.15,
-        shadowRadius: 8,
-        shadowOffset: { width: 0, height: 4 },
-        elevation: 4,
-    },
-
-    media: {
-        width: "100%",
-        aspectRatio: 1,
-    },
-
-
-
 
     inputContainer: {
         flexDirection: "row",
@@ -1554,12 +1501,16 @@ const styles = StyleSheet.create({
     },
 
     blurredPreview: {
-        width: 220,
-        height: 220,
+        width: "60%",
+        aspectRatio: 1,
         borderRadius: 12,
         overflow: "hidden",
         alignItems: "center",
         justifyContent: "center",
+    },
+    blurredImage: {
+        ...StyleSheet.absoluteFillObject,
+        resizeMode: "cover",
     },
 
 

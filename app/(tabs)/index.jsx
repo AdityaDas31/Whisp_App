@@ -19,6 +19,7 @@ import { useAuth } from "../../context/AuthContext";
 import { useChats } from "../../context/ChatContext";
 import { API_BASE_URL } from "../../config";
 import { StatusBar } from "expo-status-bar";
+import { useRouter } from "expo-router";
 
 export default function HomeScreen() {
   const [loading, setLoading] = useState(false);
@@ -32,6 +33,8 @@ export default function HomeScreen() {
   const { token, user } = useAuth();
   const { chats, openChat, loadChatsFromLocalDB, dbReady, safeLoadChatsFromLocalDB } = useChats();
   const navigation = useNavigation();
+
+  const router = useRouter();
 
   useEffect(() => {
     getContactsAndSync();
@@ -244,14 +247,26 @@ export default function HomeScreen() {
                       Alert.alert("Error", "Chat could not be opened");
                       return;
                     }
-                    navigation.navigate("ChatScreen", {
-                      chatId: chat._id,
-                      myId: myId,
-                      userId: otherUser._id,
-                      name: item.isGroupChat ? item.chatName : otherUser.name,
-                      profileImage: item.isGroupChat
-                        ? item.groupImage?.url
-                        : otherUser.profileImage?.url,
+                    // navigation.navigate("ChatScreen", {
+                    //   chatId: chat._id,
+                    //   myId: myId,
+                    //   userId: otherUser._id,
+                    //   name: item.isGroupChat ? item.chatName : otherUser.name,
+                    //   profileImage: item.isGroupChat
+                    //     ? item.groupImage?.url
+                    //     : otherUser.profileImage?.url,
+                    // });
+                    router.push({
+                      pathname: "/ChatScreen",
+                      params: {
+                        chatId: chat._id,
+                        myId,
+                        userId: otherUser._id,
+                        name: item.isGroupChat ? item.chatName : otherUser.name,
+                        profileImage: item.isGroupChat
+                          ? item.groupImage?.url
+                          : otherUser.profileImage?.url,
+                      },
                     });
                   }}
                 >
