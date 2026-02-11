@@ -4,11 +4,12 @@ import { Platform } from "react-native";
 
 // Configure notification handler
 Notifications.setNotificationHandler({
-    handleNotification: async () => ({
-        shouldShowAlert: true,  // show notification popup in foreground
-        shouldPlaySound: true,
-        shouldSetBadge: false,
-    }),
+  handleNotification: async () => ({
+    shouldShowBanner: true,
+    shouldShowList: true,
+    shouldPlaySound: true,
+    shouldSetBadge: false,
+  }),
 });
 
 export async function registerForPushNotificationsAsync() {

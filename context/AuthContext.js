@@ -11,8 +11,8 @@ export const AuthProvider = ({ children }) => {
   const [token, setToken] = useState(null);
 
   // 🌍 API Base URL
-  // const API = "http://192.168.0.100:5000/api/v1/user";
-  const API = "https://whisp-backend-api.onrender.com/api/v1/user";
+  const API = "http://192.168.0.101:5000/api/v1/user";
+  // const API = "https://whisp-backend-api.onrender.com/api/v1/user";
 
   // 📌 Load token on app start
   useEffect(() => {

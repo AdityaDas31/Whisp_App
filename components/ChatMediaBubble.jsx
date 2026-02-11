@@ -3,6 +3,10 @@ import { Image, StyleSheet, Text, TouchableOpacity, View, ActivityIndicator } fr
 import { VideoView, useVideoPlayer } from "expo-video";
 import { Ionicons } from "@expo/vector-icons";
 import Svg, { Circle } from "react-native-svg";
+import { Dimensions } from "react-native";
+
+const { width: SCREEN_WIDTH } = Dimensions.get("window");
+
 
 function ChatMediaBubble({
     uri,
@@ -104,7 +108,7 @@ export default ChatMediaBubble;
 
 const styles = StyleSheet.create({
     mediaBubble: {
-        maxWidth: 280,
+        maxWidth: SCREEN_WIDTH * 0.70,
         borderRadius: 14,
         overflow: "hidden",
         backgroundColor: "#000",
