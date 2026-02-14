@@ -1,8 +1,8 @@
 // screens/ChatScreenThemeScreen.jsx
 import React, { useEffect, useState } from "react";
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Image, Alert } from "react-native";
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Image, Alert, useWindowDimensions } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { SafeAreaProvider } from "react-native-safe-area-context";
+import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 import * as ImagePicker from "expo-image-picker";
 import { useChatTheme } from "../context/ChatThemeContext";
 import { useNavigation } from "@react-navigation/native";
@@ -26,6 +26,16 @@ const PRESET_THEMES = [
 ];
 
 export default function ChatScreenThemeScreen() {
+  const { width, height } = useWindowDimensions();
+
+  const guidelineBaseWidth = 375;
+  const scale = (size) => (width / guidelineBaseWidth) * size;
+
+  const isTablet = width >= 768;
+
+  const styles = createStyles(width, height);
+
+
   const { theme, setTheme, setPartial, resetTheme } = useChatTheme();
   const navigation = useNavigation();
   const [hasPermission, setHasPermission] = useState(null);
@@ -63,7 +73,7 @@ export default function ChatScreenThemeScreen() {
   };
 
   return (
-    <SafeAreaProvider style={styles.safeArea} edges={["top"]}>
+    <SafeAreaView style={styles.safeArea}>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
           <Ionicons name="arrow-back" size={24} color="#0A84FF" />
@@ -100,7 +110,7 @@ export default function ChatScreenThemeScreen() {
               t.otherCardIcon === theme.otherCardIconColor &&
               t.otherCardIconBackground === theme.otherCardIconBg;
 
-      
+
 
             return (
               <TouchableOpacity
@@ -127,7 +137,7 @@ export default function ChatScreenThemeScreen() {
                     otherCardLink: t.otherCardLink,
                     otherCardIconColor: t.otherCardIcon,
                     otherCardIconBg: t.otherCardIconBackground,
-                    
+
                   })
                 }
               >
@@ -187,82 +197,130 @@ export default function ChatScreenThemeScreen() {
           <Text style={styles.actionText}>Reset to Default</Text>
         </TouchableOpacity>
       </ScrollView>
-    </SafeAreaProvider>
+    </SafeAreaView>
   );
 }
 
-const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: "#fff" },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 15,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: "#E5E5EA",
-    backgroundColor: "#fff",
-  },
-  headerTitle: { fontSize: 18, fontWeight: "600", marginLeft: 12, color: "#1C1C1E" },
+const createStyles = (width, height) => {
+  const guidelineBaseWidth = 375;
+  const scale = (size) => (width / guidelineBaseWidth) * size;
+  const isTablet = width >= 768;
 
-  sectionTitle: { fontSize: 14, fontWeight: "700", color: "#8E8E93", marginBottom: 8 },
+  return StyleSheet.create({
+    safeArea: {
+      flex: 1,
+      backgroundColor: "#fff",
+    },
 
+    header: {
+      flexDirection: "row",
+      alignItems: "center",
+      paddingHorizontal: scale(16),
+      paddingVertical: scale(12),
+      borderBottomWidth: 1,
+      borderBottomColor: "#E5E5EA",
+      backgroundColor: "#fff",
+    },
 
-  themeRowContainer: {
-    paddingVertical: 10,
-    paddingHorizontal: 5,
-  },
+    headerTitle: {
+      fontSize: scale(isTablet ? 20 : 18),
+      fontWeight: "600",
+      marginLeft: scale(12),
+      color: "#1C1C1E",
+    },
 
-  themeCard: {
-    width: 140,              // fixed card width
-    alignItems: "center",
-    padding: 12,
-    marginRight: 12,         // space between cards
-    backgroundColor: "#fff",
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: "transparent",
-  },
+    sectionTitle: {
+      fontSize: scale(14),
+      fontWeight: "700",
+      color: "#8E8E93",
+      marginBottom: scale(8),
+    },
 
-  selectedRow: { borderColor: "#0A84FF" },
-  preview: { marginRight: 12 },
-  previewBg: {
-    width: 120,
-    height: 48,
-    borderRadius: 8,
-    padding: 6,
-    justifyContent: "space-between",
-  },
-  previewBubble: { width: 44, height: 24, borderRadius: 12 },
-  themeName: { flex: 1, fontSize: 16, marginTop: 10 },
+    themeRowContainer: {
+      paddingVertical: scale(10),
+      paddingHorizontal: scale(6),
+    },
 
-  option: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: 14,
-    paddingHorizontal: 12,
-    backgroundColor: "#fff",
-    borderRadius: 10,
-    marginBottom: 8,
-  },
-  optionText: { fontSize: 16, marginLeft: 12 },
+    themeCard: {
+      width: isTablet ? width * 0.22 : width * 0.38,
+      alignItems: "center",
+      padding: scale(12),
+      marginRight: scale(12),
+      backgroundColor: "#fff",
+      borderRadius: scale(14),
+      borderWidth: 1,
+      borderColor: "transparent",
+    },
 
-  wallPreviewWrap: {
-    marginTop: 12,
-    borderRadius: 12,
-    overflow: "hidden",
-    alignItems: "center",
-  },
-  wallPreview: {
-    width: "100%",
-    height: 180,
-    resizeMode: "cover",
-  },
+    selectedRow: {
+      borderColor: "#0A84FF",
+    },
 
-  actionBtn: {
-    backgroundColor: "#0A84FF",
-    borderRadius: 10,
-    paddingVertical: 12,
-    alignItems: "center",
-  },
-  actionText: { color: "#fff", fontWeight: "700" },
-});
+    preview: {
+      width: "100%",
+      alignItems: "center",
+    },
+
+    previewBg: {
+      width: "100%",
+      height: scale(52),
+      borderRadius: scale(8),
+      padding: scale(6),
+      justifyContent: "space-between",
+    },
+
+    previewBubble: {
+      width: "40%",
+      height: scale(20),
+      borderRadius: scale(12),
+    },
+
+    themeName: {
+      fontSize: scale(14),
+      marginTop: scale(10),
+      textAlign: "center",
+    },
+
+    option: {
+      flexDirection: "row",
+      alignItems: "center",
+      paddingVertical: scale(14),
+      paddingHorizontal: scale(12),
+      backgroundColor: "#fff",
+      borderRadius: scale(12),
+      marginBottom: scale(10),
+    },
+
+    optionText: {
+      fontSize: scale(15),
+      marginLeft: scale(12),
+    },
+
+    wallPreviewWrap: {
+      marginTop: scale(12),
+      borderRadius: scale(14),
+      overflow: "hidden",
+      alignItems: "center",
+    },
+
+    wallPreview: {
+      width: "100%",
+      height: Math.min(scale(200), height * 0.3),
+      resizeMode: "cover",
+    },
+
+    actionBtn: {
+      backgroundColor: "#0A84FF",
+      borderRadius: scale(12),
+      paddingVertical: scale(14),
+      alignItems: "center",
+    },
+
+    actionText: {
+      color: "#fff",
+      fontWeight: "700",
+      fontSize: scale(15),
+    },
+  });
+};
+

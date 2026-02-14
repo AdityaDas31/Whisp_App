@@ -17,8 +17,9 @@ import { AuthProvider, useAuth } from "../context/AuthContext";
 import { ChatProvider } from "../context/ChatContext";
 import { ChatThemeProvider } from "../context/ChatThemeContext";
 import Splash from "./SplashScreen";
-import { navigationRef } from "../utils/navigationRef";
 import { useRouter } from "expo-router";
+import * as NavigationBar from "expo-navigation-bar";
+import { Platform } from "react-native";
 
 
 SplashScreen.preventAutoHideAsync();
@@ -144,6 +145,15 @@ export default function RootLayout() {
   const [loaded] = useFonts({
     SpaceMono: require("../assets/fonts/SpaceMono-Regular.ttf"),
   });
+
+  useEffect(() => {
+    if (Platform.OS === "android") {
+      NavigationBar.setPositionAsync("relative");
+      NavigationBar.setBackgroundColorAsync("#F7F8FA");
+      NavigationBar.setButtonStyleAsync("dark");
+    }
+  }, []);
+
 
   useEffect(() => {
     if (!showSplash && loaded) {
