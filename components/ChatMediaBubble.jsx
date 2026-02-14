@@ -3,9 +3,8 @@ import { Image, StyleSheet, Text, TouchableOpacity, View, ActivityIndicator } fr
 import { VideoView, useVideoPlayer } from "expo-video";
 import { Ionicons } from "@expo/vector-icons";
 import Svg, { Circle } from "react-native-svg";
-import { Dimensions } from "react-native";
+import { useWindowDimensions } from "react-native";
 
-const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
 
 function ChatMediaBubble({
@@ -16,6 +15,14 @@ function ChatMediaBubble({
     status,
     progress = 0,
 }) {
+    const { width } = useWindowDimensions();
+
+    const guidelineBaseWidth = 375;
+    const scale = (size) => (width / guidelineBaseWidth) * size;
+
+    const maxBubbleWidth = width * 0.7;   // 70% like WhatsApp
+    const maxBubbleHeight = width * 1.2;  // prevent extremely tall images
+
     const [aspectRatio, setAspectRatio] = useState(1);
     const isVideo = type === "video";
 
@@ -33,6 +40,9 @@ function ChatMediaBubble({
     if (!uri) {
         return null; // or loader
     }
+    
+    const styles = createStyles(width);
+
 
     return (
         <View style={styles.mediaBubble}>
@@ -106,71 +116,146 @@ function ChatMediaBubble({
 export default ChatMediaBubble;
 
 
-const styles = StyleSheet.create({
-    mediaBubble: {
-        maxWidth: SCREEN_WIDTH * 0.70,
-        borderRadius: 14,
-        overflow: "hidden",
-        backgroundColor: "#000",
-    },
-    mediaWrapper: {
-        width: "100%",
-        backgroundColor: "#000",
-    },
-    video: {
-        ...StyleSheet.absoluteFillObject,
-    },
-    image: {
-        width: "100%",
-        height: "100%",
-    },
+// const styles = StyleSheet.create({
+//     mediaBubble: {
+//         maxWidth: SCREEN_WIDTH * 0.70,
+//         borderRadius: 14,
+//         overflow: "hidden",
+//         backgroundColor: "#000",
+//     },
+//     mediaWrapper: {
+//         width: "100%",
+//         backgroundColor: "#000",
+//     },
+//     video: {
+//         ...StyleSheet.absoluteFillObject,
+//     },
+//     image: {
+//         width: "100%",
+//         height: "100%",
+//     },
 
-    /* CENTER OVERLAY */
-    centerOverlay: {
-        ...StyleSheet.absoluteFillObject,
-        justifyContent: "center",
-        alignItems: "center",
-        backgroundColor: "rgba(0,0,0,0.35)",
-    },
+//     /* CENTER OVERLAY */
+//     centerOverlay: {
+//         ...StyleSheet.absoluteFillObject,
+//         justifyContent: "center",
+//         alignItems: "center",
+//         backgroundColor: "rgba(0,0,0,0.35)",
+//     },
 
-    progressText: {
-        position: "absolute",
-        color: "#fff",
-        fontSize: 14,
-        fontWeight: "600",
-    },
+//     progressText: {
+//         position: "absolute",
+//         color: "#fff",
+//         fontSize: 14,
+//         fontWeight: "600",
+//     },
 
-    sendingText: {
-        marginTop: 6,
-        color: "#fff",
-        fontSize: 13,
-        opacity: 0.85,
-    },
+//     sendingText: {
+//         marginTop: 6,
+//         color: "#fff",
+//         fontSize: 13,
+//         opacity: 0.85,
+//     },
 
-    playButton: {
-        width: 56,
-        height: 56,
-        borderRadius: 28,
-        backgroundColor: "rgba(0,0,0,0.55)",
-        justifyContent: "center",
-        alignItems: "center",
-    },
+//     playButton: {
+//         width: 56,
+//         height: 56,
+//         borderRadius: 28,
+//         backgroundColor: "rgba(0,0,0,0.55)",
+//         justifyContent: "center",
+//         alignItems: "center",
+//     },
 
-    /* FOOTER */
-    overlayFooter: {
-        position: "absolute",
-        right: 8,
-        bottom: 6,
-        flexDirection: "row",
-        alignItems: "center",
-        backgroundColor: "rgba(0,0,0,0.45)",
-        borderRadius: 12,
-        paddingHorizontal: 6,
-        paddingVertical: 2,
-    },
-    overlayTime: {
-        fontSize: 11,
-        color: "#fff",
-        marginRight: 4,
-    },
-});
+//     /* FOOTER */
+//     overlayFooter: {
+//         position: "absolute",
+//         right: 8,
+//         bottom: 6,
+//         flexDirection: "row",
+//         alignItems: "center",
+//         backgroundColor: "rgba(0,0,0,0.45)",
+//         borderRadius: 12,
+//         paddingHorizontal: 6,
+//         paddingVertical: 2,
+//     },
+//     overlayTime: {
+//         fontSize: 11,
+//         color: "#fff",
+//         marginRight: 4,
+//     },
+// });
+
+const createStyles = (width) => {
+    const guidelineBaseWidth = 375;
+    const scale = (size) => (width / guidelineBaseWidth) * size;
+
+    return StyleSheet.create({
+        mediaBubble: {
+            maxWidth: width * 0.7,
+            borderRadius: scale(16),
+            overflow: "hidden",
+            backgroundColor: "#000",
+            alignSelf: "flex-start",
+        },
+
+        mediaWrapper: {
+            width: "100%",
+            backgroundColor: "#000",
+            maxHeight: width * 1.2,
+        },
+
+        image: {
+            width: "100%",
+            height: "100%",
+        },
+
+        /* CENTER OVERLAY */
+        centerOverlay: {
+            ...StyleSheet.absoluteFillObject,
+            justifyContent: "center",
+            alignItems: "center",
+            backgroundColor: "rgba(0,0,0,0.35)",
+        },
+
+        progressText: {
+            position: "absolute",
+            color: "#fff",
+            fontSize: scale(14),
+            fontWeight: "600",
+        },
+
+        sendingText: {
+            marginTop: scale(6),
+            color: "#fff",
+            fontSize: scale(13),
+            opacity: 0.85,
+        },
+
+        playButton: {
+            width: scale(56),
+            height: scale(56),
+            borderRadius: scale(28),
+            backgroundColor: "rgba(0,0,0,0.55)",
+            justifyContent: "center",
+            alignItems: "center",
+        },
+
+        overlayFooter: {
+            position: "absolute",
+            right: scale(8),
+            bottom: scale(6),
+            flexDirection: "row",
+            alignItems: "center",
+            backgroundColor: "rgba(0,0,0,0.45)",
+            borderRadius: scale(12),
+            paddingHorizontal: scale(6),
+            paddingVertical: scale(2),
+        },
+
+        overlayTime: {
+            fontSize: scale(11),
+            color: "#fff",
+            marginRight: scale(4),
+        },
+    });
+};

@@ -1,12 +1,20 @@
 import React from "react";
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from "react-native";
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, useWindowDimensions } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { SafeAreaProvider } from "react-native-safe-area-context";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { debugPrintMessages, resetDB, readLogFile , resetLogFile} from "../db/chatDB";
+import { debugPrintMessages, resetDB, readLogFile, resetLogFile } from "../db/chatDB";
 
 export default function ChatSettingsScreen() {
+    const { width } = useWindowDimensions();
+
+    const guidelineBaseWidth = 375;
+    const scale = (size) => (width / guidelineBaseWidth) * size;
+    const isTablet = width >= 768;
+
+    const styles = createStyles(width);
+
+
     const navigation = useNavigation();
 
     const clearAllData = async () => {
@@ -37,7 +45,7 @@ export default function ChatSettingsScreen() {
     }
 
     return (
-        <SafeAreaProvider style={styles.safeArea} edges={["top"]}>
+        <SafeAreaView style={styles.safeArea} edges={["top"]}>
             {/* Header */}
             <View style={styles.header}>
                 <TouchableOpacity onPress={() => navigation.goBack()}>
@@ -102,50 +110,68 @@ export default function ChatSettingsScreen() {
 
                 </View>
             </ScrollView>
-        </SafeAreaProvider>
+        </SafeAreaView>
     );
 }
 
-const styles = StyleSheet.create({
-    safeArea: { flex: 1, backgroundColor: "#F7F8FA" },
-    header: {
-        flexDirection: "row",
-        alignItems: "center",
-        paddingHorizontal: 15,
-        paddingVertical: 12,
-        borderBottomWidth: 1,
-        borderBottomColor: "#E5E5EA",
-        backgroundColor: "#fff",
-    },
-    headerTitle: {
-        fontSize: 18,
-        fontWeight: "600",
-        marginLeft: 15,
-        color: "#1C1C1E",
-    },
-    section: {
-        marginTop: 20,
-        backgroundColor: "#fff",
-    },
-    sectionTitle: {
-        fontSize: 14,
-        fontWeight: "600",
-        paddingHorizontal: 20,
-        paddingTop: 10,
-        paddingBottom: 5,
-        color: "#8E8E93",
-    },
-    option: {
-        flexDirection: "row",
-        alignItems: "center",
-        paddingVertical: 15,
-        paddingHorizontal: 20,
-        borderBottomWidth: 1,
-        borderBottomColor: "#E5E5EA",
-    },
-    optionText: {
-        fontSize: 16,
-        marginLeft: 15,
-        color: "#1C1C1E",
-    },
-});
+const createStyles = (width) => {
+    const guidelineBaseWidth = 375;
+    const scale = (size) => (width / guidelineBaseWidth) * size;
+    const isTablet = width >= 768;
+
+    return StyleSheet.create({
+        safeArea: {
+            flex: 1,
+            backgroundColor: "#F7F8FA",
+            // backgroundColor: "red",
+        },
+
+        header: {
+            flexDirection: "row",
+            alignItems: "center",
+            paddingHorizontal: scale(16),
+            paddingVertical: scale(14),
+            borderBottomWidth: 1,
+            borderBottomColor: "#E5E5EA",
+            backgroundColor: "#fff",
+        },
+
+        headerTitle: {
+            fontSize: scale(isTablet ? 20 : 18),
+            fontWeight: "600",
+            marginLeft: scale(15),
+            color: "#1C1C1E",
+        },
+
+        section: {
+            marginTop: scale(20),
+            backgroundColor: "#fff",
+            borderRadius: isTablet ? scale(12) : 0,
+            marginHorizontal: isTablet ? width * 0.05 : 0,
+        },
+
+        sectionTitle: {
+            fontSize: scale(14),
+            fontWeight: "600",
+            paddingHorizontal: scale(20),
+            paddingTop: scale(12),
+            paddingBottom: scale(6),
+            color: "#8E8E93",
+        },
+
+        option: {
+            flexDirection: "row",
+            alignItems: "center",
+            paddingVertical: scale(16),
+            paddingHorizontal: scale(20),
+            borderBottomWidth: 1,
+            borderBottomColor: "#E5E5EA",
+        },
+
+        optionText: {
+            fontSize: scale(16),
+            marginLeft: scale(15),
+            color: "#1C1C1E",
+        },
+    });
+};

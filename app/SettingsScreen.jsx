@@ -1,11 +1,19 @@
 import React, { useEffect } from "react";
-import { View, Text, StyleSheet, Image, TouchableOpacity, ScrollView } from "react-native";
+import { View, Text, StyleSheet, Image, TouchableOpacity, ScrollView, useWindowDimensions } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
-import { SafeAreaProvider } from "react-native-safe-area-context";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuth } from "../context/AuthContext"; // make sure path is correct
 
 export default function SettingsScreen() {
+    const { width } = useWindowDimensions();
+
+    const guidelineBaseWidth = 375;
+    const scale = (size) => (width / guidelineBaseWidth) * size;
+    const isTablet = width >= 768;
+
+    const styles = createStyles(width);
+
     const navigation = useNavigation();
     const { user, fetchProfile } = useAuth();
 
@@ -15,7 +23,7 @@ export default function SettingsScreen() {
     }, []);
 
     return (
-        <SafeAreaProvider style={styles.safeArea} edges={["top"]}>
+        <SafeAreaView style={styles.safeArea}>
             {/* Header */}
             <View style={styles.header}>
                 <TouchableOpacity onPress={() => navigation.goBack()}>
@@ -68,68 +76,91 @@ export default function SettingsScreen() {
                     </TouchableOpacity>
                 </View>
             </ScrollView>
-        </SafeAreaProvider>
+        </SafeAreaView>
     );
 }
 
-const styles = StyleSheet.create({
-    safeArea: { flex: 1, backgroundColor: "#F7F8FA" },
-    header: {
-        flexDirection: "row",
-        alignItems: "center",
-        paddingHorizontal: 15,
-        paddingVertical: 12,
-        borderBottomWidth: 1,
-        borderBottomColor: "#E5E5EA",
-        backgroundColor: "#fff",
-    },
-    headerTitle: {
-        fontSize: 18,
-        fontWeight: "600",
-        marginLeft: 15,
-        color: "#1C1C1E",
-    },
-    profileSection: {
-        flexDirection: "row",
-        alignItems: "center",
-        padding: 15,
-        borderBottomWidth: 1,
-        borderBottomColor: "#E5E5EA",
-        backgroundColor: "#fff",
-    },
-    avatar: {
-        width: 60,
-        height: 60,
-        borderRadius: 30,
-    },
-    profileInfo: {
-        flex: 1,
-        marginLeft: 15,
-    },
-    profileName: {
-        fontSize: 18,
-        fontWeight: "600",
-        color: "#1C1C1E",
-    },
-    profileSubText: {
-        fontSize: 14,
-        color: "#8E8E93",
-    },
-    section: {
-        marginTop: 20,
-        backgroundColor: "#fff",
-    },
-    option: {
-        flexDirection: "row",
-        alignItems: "center",
-        paddingVertical: 15,
-        paddingHorizontal: 20,
-        borderBottomWidth: 1,
-        borderBottomColor: "#E5E5EA",
-    },
-    optionText: {
-        fontSize: 16,
-        marginLeft: 15,
-        color: "#1C1C1E",
-    },
-});
+const createStyles = (width) => {
+    const guidelineBaseWidth = 375;
+    const scale = (size) => (width / guidelineBaseWidth) * size;
+    const isTablet = width >= 768;
+
+    const avatarSize = isTablet
+        ? Math.min(width * 0.12, 90)
+        : Math.min(width * 0.16, 70);
+
+    return StyleSheet.create({
+        safeArea: { flex: 1, backgroundColor: "#F7F8FA" },
+        header: {
+            flexDirection: "row",
+            alignItems: "center",
+            paddingHorizontal: scale(20),
+            paddingVertical: scale(14),
+            borderBottomWidth: 1,
+            borderBottomColor: "#E5E5EA",
+            backgroundColor: "#fff",
+        },
+
+        headerTitle: {
+            fontSize: scale(isTablet ? 20 : 18),
+            fontWeight: "600",
+            marginLeft: scale(14),
+            color: "#1C1C1E",
+        },
+
+        profileSection: {
+            flexDirection: "row",
+            alignItems: "center",
+            paddingHorizontal: scale(20),
+            paddingVertical: scale(18),
+            borderBottomWidth: 1,
+            borderBottomColor: "#E5E5EA",
+            backgroundColor: "#fff",
+        },
+
+        avatar: {
+            width: avatarSize,
+            height: avatarSize,
+            borderRadius: avatarSize / 2,
+        },
+
+        profileInfo: {
+            flex: 1,
+            marginLeft: scale(16),
+        },
+
+        profileName: {
+            fontSize: scale(isTablet ? 20 : 17),
+            fontWeight: "600",
+            color: "#1C1C1E",
+            marginBottom: scale(4),
+        },
+
+        profileSubText: {
+            fontSize: scale(14),
+            color: "#8E8E93",
+            marginBottom: scale(2),
+        },
+
+        section: {
+            marginTop: scale(24),
+            backgroundColor: "#fff",
+        },
+
+        option: {
+            flexDirection: "row",
+            alignItems: "center",
+            paddingVertical: scale(18),
+            paddingHorizontal: scale(20),
+            borderBottomWidth: 1,
+            borderBottomColor: "#E5E5EA",
+        },
+
+        optionText: {
+            fontSize: scale(isTablet ? 18 : 16),
+            marginLeft: scale(18),
+            color: "#1C1C1E",
+        },
+    });
+};
+
