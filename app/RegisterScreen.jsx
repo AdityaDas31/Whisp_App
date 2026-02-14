@@ -202,6 +202,11 @@ export default function RegisterScreen() {
                 <Text style={styles.buttonText}>Send In Phone</Text>
               </TouchableOpacity>
             </View>
+            <TouchableOpacity onPress={() => navigation.navigate("LoginScreen")}>
+              <Text style={styles.loginLink}>
+                Already have an account? <Text style={styles.highlight}>Login</Text>
+              </Text>
+            </TouchableOpacity>
           </>
         ) : (
           <>
@@ -340,5 +345,12 @@ const createStyles = (width) => {
       marginHorizontal: 6,
       backgroundColor: "#fff",
     },
+    loginLink: {
+      fontSize: 14,
+      color: "#333",
+      marginTop: 10,
+      textAlign: "center",
+    },
   });
+
 };
