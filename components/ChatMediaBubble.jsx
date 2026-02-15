@@ -40,7 +40,7 @@ function ChatMediaBubble({
     if (!uri) {
         return null; // or loader
     }
-    
+
     const styles = createStyles(width);
 
 
@@ -101,7 +101,13 @@ function ChatMediaBubble({
                         <Text style={styles.overlayTime}>{time}</Text>
                         {isMine && (
                             <Ionicons
-                                name={status === "seen" ? "checkmark-done" : "checkmark"}
+                                name={
+                                    status === "seen"
+                                        ? "checkmark-done"
+                                        : status === "delivered"
+                                            ? "checkmark-done"
+                                            : "checkmark"
+                                }
                                 size={16}
                                 color={status === "seen" ? "#0A84FF" : "#999"}
                             />

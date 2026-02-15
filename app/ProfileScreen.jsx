@@ -78,7 +78,7 @@ export default function ProfileScreen() {
   };
 
   return (
-    <SafeAreaView  style={styles.safeArea}>
+    <SafeAreaView style={styles.safeArea}>
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
@@ -109,6 +109,7 @@ export default function ProfileScreen() {
             onChangeText={setName}
             style={styles.input}
             placeholder="Enter your name"
+            placeholderTextColor="#A1A1A1"
           />
         </View>
 
@@ -120,6 +121,7 @@ export default function ProfileScreen() {
             onChangeText={setAbout}
             style={styles.input}
             placeholder="Write something about you"
+            placeholderTextColor="#A1A1A1"
           />
         </View>
 

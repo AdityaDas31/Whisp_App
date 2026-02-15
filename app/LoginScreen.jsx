@@ -79,7 +79,7 @@ export default function LoginScreen() {
             style={styles.input}
             placeholder="Email or Phone"
             keyboardType="phone-pad"
-            placeholderTextColor="#aaa"
+            placeholderTextColor="#A1A1A1"
             value={emailOrPhone}
             onChangeText={setEmailOrPhone}
           />
@@ -92,7 +92,7 @@ export default function LoginScreen() {
               secureTextEntry={!showPassword}
               value={password}
               onChangeText={setPassword}
-              placeholderTextColor="#aaa"
+              placeholderTextColor="#A1A1A1"
             />
             <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
               <Ionicons
@@ -184,6 +184,7 @@ const createStyles = (width, height) => {
       marginBottom: scale(14),
       backgroundColor: "#fff",
       fontSize: scale(15),
+      color: "#333",
     },
 
     passwordContainer: {

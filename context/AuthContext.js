@@ -86,6 +86,8 @@ export const AuthProvider = ({ children }) => {
   // 📌 Verify OTP + Save Token
   const verifyOtp = async (data) => {
     try {
+      setLoading(true); // ✅ START loader
+
       const formData = new FormData();
       formData.append("otp", data.otp);
       formData.append("name", data.name);
@@ -109,13 +111,16 @@ export const AuthProvider = ({ children }) => {
       });
 
       console.log("Verify OTP response:", res.status, res.data);
-      // 🟢 Save user + token
+
       setUser(res.data.user);
+
       if (res.data.token) {
         setToken(res.data.token);
+
         await AsyncStorage.setItem("authToken", res.data.token);
-        // 👇 Register for notifications
+
         const expoPushToken = await registerForPushNotificationsAsync();
+
         if (expoPushToken) {
           try {
             await axios.post(
@@ -130,10 +135,18 @@ export const AuthProvider = ({ children }) => {
       }
 
       return res.data;
+
     } catch (err) {
+
       throw err.response?.data || { message: "OTP verification failed" };
+
+    } finally {
+
+      setLoading(false); // ✅ STOP loader
+
     }
   };
+
 
   // Login 
 

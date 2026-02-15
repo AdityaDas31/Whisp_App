@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState } from "react";
 import {
   View,
   Text,
@@ -7,25 +7,32 @@ import {
   Image,
   StyleSheet,
   ActivityIndicator,
-  useWindowDimensions,
+  useWindowDimensions
 } from "react-native";
 import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
 import * as ImagePicker from "expo-image-picker";
 import { CountryPicker } from "react-native-country-codes-picker";
 import { Ionicons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
-import { useAuth } from "../context/AuthContext";
+import { useAuth } from "../context/AuthContext"; // ✅ import AuthContext
 import { SafeAreaView } from "react-native-safe-area-context";
+import { BlurView } from "expo-blur";
+
 
 export default function RegisterScreen() {
-  const { width } = useWindowDimensions();
-  const styles = createStyles(width);
+  const { registerWithEmail, registerWithPhone, verifyOtp, loading } =
+    useAuth();
   const navigation = useNavigation();
-  const { registerWithEmail, registerWithPhone, verifyOtp, loading } = useAuth();
 
-  const otpRefs = useRef([]);
+  const { width, height } = useWindowDimensions();
 
-  const [showPicker, setShowPicker] = useState(false);
+  const guidelineBaseWidth = 375;
+  const scale = (size) => (width / guidelineBaseWidth) * size;
+  const isTablet = width >= 768;
+
+  const styles = createStyles(width);
+
+
   const [countryCode, setCountryCode] = useState("IN");
   const [callingCode, setCallingCode] = useState("91");
   const [fullName, setFullName] = useState("");
@@ -37,8 +44,13 @@ export default function RegisterScreen() {
   const [showOtpForm, setShowOtpForm] = useState(false);
   const [otpType, setOtpType] = useState(null);
   const [otp, setOtp] = useState("");
+  let refs = [];
+
   const [selectedOtpMethod, setSelectedOtpMethod] = useState(null);
 
+  const [showCountryPicker, setShowCountryPicker] = useState(false);
+
+  // Pick profile image
   const pickImage = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ["images"],
@@ -52,6 +64,7 @@ export default function RegisterScreen() {
     }
   };
 
+  // Send OTP
   const handleSendOtp = async (type) => {
     try {
       setSelectedOtpMethod(type);
@@ -76,14 +89,15 @@ export default function RegisterScreen() {
       setShowOtpForm(true);
       alert("OTP sent successfully!");
     } catch (err) {
-      setSelectedOtpMethod(null);
+      setSelectedOtpMethod(null); // reset on error
       alert(err.message || "Failed to send OTP");
     }
   };
 
+  // Verify OTP
   const handleVerifyOtp = async () => {
     try {
-      await verifyOtp({
+      const payload = {
         otp,
         name: fullName,
         password,
@@ -91,7 +105,9 @@ export default function RegisterScreen() {
         email,
         phoneNumber: phone,
         profileImage,
-      });
+      };
+
+      await verifyOtp(payload);
 
       alert("Registration successful!");
       navigation.navigate("(tabs)");
@@ -100,15 +116,40 @@ export default function RegisterScreen() {
     }
   };
 
+  {
+    loading && (
+      <BlurView
+        intensity={50}
+        tint="dark"
+        style={{
+          position: "absolute",
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          justifyContent: "center",
+          alignItems: "center",
+          zIndex: 999,
+        }}
+      >
+        <ActivityIndicator size="large" color="#fff" />
+      </BlurView>
+    )
+  }
+
+
   return (
     <SafeAreaView style={{ flex: 1 }}>
       <KeyboardAwareScrollView
         contentContainerStyle={styles.container}
-        enableOnAndroid
+        enableOnAndroid={true}
+        extraScrollHeight={20}
         keyboardShouldPersistTaps="handled"
+
       >
         {!showOtpForm ? (
           <>
+            {/* Profile Image Preview */}
             {profileImage ? (
               <Image source={{ uri: profileImage }} style={styles.profileImage} />
             ) : (
@@ -116,31 +157,40 @@ export default function RegisterScreen() {
             )}
 
             <Text style={styles.heading}>Create Your Account</Text>
+            <Text style={styles.welcomeText}>
+              Thank you for choosing <Text style={styles.highlight}>Whisp</Text>.
+              {"\n"}
+              Let’s get you started with your new account.
+            </Text>
 
+            {/* Form */}
             <View style={styles.form}>
               <TextInput
                 style={styles.input}
                 placeholder="Full Name"
                 value={fullName}
                 onChangeText={setFullName}
+                placeholderTextColor="#A1A1A1"
               />
-
               <TextInput
                 style={styles.input}
                 placeholder="Email"
                 keyboardType="email-address"
                 value={email}
                 onChangeText={setEmail}
+                placeholderTextColor="#A1A1A1"
               />
 
-              {/* Country Picker */}
+              {/* Country Code + Phone */}
               <View style={styles.phoneRow}>
+
                 <TouchableOpacity
                   style={styles.codeBox}
-                  onPress={() => setShowPicker(true)}
+                  onPress={() => setShowCountryPicker(true)}
                 >
                   <Text style={styles.codeText}>+{callingCode}</Text>
                 </TouchableOpacity>
+
 
                 <TextInput
                   style={[styles.input, { flex: 1, marginLeft: 8 }]}
@@ -148,27 +198,22 @@ export default function RegisterScreen() {
                   keyboardType="phone-pad"
                   value={phone}
                   onChangeText={setPhone}
+                  placeholderTextColor="#A1A1A1"
                 />
               </View>
-
-              <CountryPicker
-                show={showPicker}
-                pickerButtonOnPress={(item) => {
-                  setCallingCode(item.dial_code.replace("+", ""));
-                  setCountryCode(item.code);
-                  setShowPicker(false);
-                }}
-                onBackdropPress={() => setShowPicker(false)}
-              />
 
               {/* Password */}
               <View style={styles.passwordContainer}>
                 <TextInput
-                  style={[styles.input, { flex: 1, borderWidth: 0 }]}
+                  style={[
+                    styles.input,
+                    { flex: 1, marginBottom: 0, borderWidth: 0 },
+                  ]}
                   placeholder="Password"
                   secureTextEntry={!showPassword}
                   value={password}
                   onChangeText={setPassword}
+                  placeholderTextColor="#A1A1A1"
                 />
                 <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
                   <Ionicons
@@ -180,37 +225,60 @@ export default function RegisterScreen() {
               </View>
 
               <TouchableOpacity style={styles.imagePicker} onPress={pickImage}>
-                <Text style={styles.imagePickerText}>
-                  Choose Profile Image
-                </Text>
+                <Text style={styles.imagePickerText}>Choose Profile Image</Text>
               </TouchableOpacity>
             </View>
 
-            {/* OTP Buttons */}
+            {/* Send OTP */}
             <View style={styles.otpButton}>
-              <TouchableOpacity
-                style={styles.button}
-                onPress={() => handleSendOtp("email")}
-              >
-                <Text style={styles.buttonText}>Send In Email</Text>
-              </TouchableOpacity>
+              {(selectedOtpMethod === null || selectedOtpMethod === "email") && (
+                <TouchableOpacity
+                  style={styles.button}
+                  onPress={() => handleSendOtp("email")}
+                  disabled={loading}
+                >
+                  {loading && selectedOtpMethod === "email" ? (
+                    <ActivityIndicator color="#fff" />
+                  ) : (
+                    <Text style={styles.buttonText}>Send In Email</Text>
+                  )}
+                </TouchableOpacity>
+              )}
 
-              <TouchableOpacity
-                style={styles.button}
-                onPress={() => handleSendOtp("phone")}
-              >
-                <Text style={styles.buttonText}>Send In Phone</Text>
-              </TouchableOpacity>
+              {(selectedOtpMethod === null || selectedOtpMethod === "phone") && (
+                <TouchableOpacity
+                  style={styles.button}
+                  onPress={() => handleSendOtp("phone")}
+                  disabled={loading}
+                >
+                  {loading && selectedOtpMethod === "phone" ? (
+                    <ActivityIndicator color="#fff" />
+                  ) : (
+                    <Text style={styles.buttonText}>Send In Phone</Text>
+                  )}
+                </TouchableOpacity>
+              )}
             </View>
+
             <TouchableOpacity onPress={() => navigation.navigate("LoginScreen")}>
               <Text style={styles.loginLink}>
-                Already have an account? <Text style={styles.highlight}>Login</Text>
+                Already have an account?{" "}
+                <Text style={styles.highlight}>Login</Text>
               </Text>
             </TouchableOpacity>
           </>
         ) : (
           <>
-            <Text style={styles.heading}>Verify OTP</Text>
+            <Text style={styles.heading}>
+              {otpType === "email" ? "Verify Email OTP" : "Verify Phone OTP"}
+            </Text>
+            <Text style={styles.welcomeText}>
+              We’ve sent an OTP to your{" "}
+              <Text style={styles.highlight}>
+                {otpType === "email" ? "Email" : "Phone"}
+              </Text>
+              . Enter it below.
+            </Text>
 
             <View style={styles.otpContainer}>
               {Array(4)
@@ -221,24 +289,49 @@ export default function RegisterScreen() {
                     style={styles.otpInput}
                     keyboardType="number-pad"
                     maxLength={1}
-                    ref={(ref) => (otpRefs.current[index] = ref)}
+                    value={otp[index] || ""}
                     onChangeText={(value) => {
-                      const newOtp = otp.split("");
-                      newOtp[index] = value;
-                      setOtp(newOtp.join(""));
-                      if (value && index < 3) {
-                        otpRefs.current[index + 1]?.focus();
+                      let otpArray = otp.split("");
+                      otpArray[index] = value;
+                      setOtp(otpArray.join(""));
+                      if (value && index < 3) refs[index + 1].focus();
+                    }}
+                    onKeyPress={({ nativeEvent }) => {
+                      if (
+                        nativeEvent.key === "Backspace" &&
+                        index > 0 &&
+                        !otp[index]
+                      ) {
+                        refs[index - 1].focus();
                       }
                     }}
+                    ref={(ref) => (refs[index] = ref)}
                   />
                 ))}
             </View>
 
             <TouchableOpacity
-              style={styles.button}
+              style={[styles.button, loading && { opacity: 0.7 }]}
               onPress={handleVerifyOtp}
+              disabled={loading}
             >
-              <Text style={styles.buttonText}>Verify OTP</Text>
+              {loading ? (
+                <ActivityIndicator color="#fff" size="small" />
+              ) : (
+                <Text style={styles.buttonText}>Verify OTP</Text>
+              )}
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              onPress={() => {
+                setShowOtpForm(false);
+                setSelectedOtpMethod(null);
+              }}
+            >
+              <Text style={styles.loginLink}>
+                Back to{" "}
+                <Text style={styles.highlight}>Registration</Text>
+              </Text>
             </TouchableOpacity>
           </>
         )}
@@ -248,7 +341,17 @@ export default function RegisterScreen() {
 }
 
 const createStyles = (width) => {
-  const scale = (size) => (width / 375) * size;
+  const guidelineBaseWidth = 375;
+  const scale = (size) => (width / guidelineBaseWidth) * size;
+  const isTablet = width >= 768;
+
+  const avatarSize = isTablet
+    ? Math.min(width * 0.22, 180)
+    : Math.min(width * 0.32, 140);
+
+  const otpBoxSize = isTablet
+    ? Math.min(width * 0.08, 70)
+    : Math.min(width * 0.12, 55);
 
   return StyleSheet.create({
     container: {
@@ -258,99 +361,152 @@ const createStyles = (width) => {
       paddingHorizontal: scale(24),
       backgroundColor: "#f9f9f9",
     },
+
     profileImage: {
-      width: 120,
-      height: 120,
-      borderRadius: 60,
-      marginBottom: 14,
+      width: avatarSize,
+      height: avatarSize,
+      borderRadius: avatarSize / 2,
+      marginBottom: scale(14),
     },
+
+    imagePicker: {
+      marginTop: scale(12),
+      alignItems: "center",
+    },
+
+    imagePickerText: {
+      color: "#4A90E2",
+      fontSize: scale(14),
+      marginTop: scale(6),
+    },
+
     heading: {
-      fontSize: scale(24),
+      fontSize: scale(isTablet ? 30 : 26),
       fontWeight: "700",
-      marginBottom: 20,
+      color: "#333",
+      marginBottom: scale(10),
+      textAlign: "center",
     },
+
+    welcomeText: {
+      fontSize: scale(15),
+      color: "#555",
+      textAlign: "center",
+      marginBottom: scale(28),
+      lineHeight: scale(22),
+      maxWidth: isTablet ? width * 0.6 : "100%",
+    },
+
+    highlight: {
+      color: "#4A90E2",
+      fontWeight: "700",
+    },
+
     form: {
       width: "100%",
+      maxWidth: isTablet ? width * 0.6 : "100%",
+      marginBottom: scale(20),
     },
+
     input: {
-      padding: scale(14),
+      width: "100%",
+      paddingVertical: scale(14),
+      paddingHorizontal: scale(14),
       borderWidth: 1,
       borderColor: "#ddd",
-      borderRadius: 12,
-      marginBottom: 14,
+      borderRadius: scale(12),
+      marginBottom: scale(14),
       backgroundColor: "#fff",
+      fontSize: scale(15),
+      color: "#333",
     },
+
     phoneRow: {
       flexDirection: "row",
       alignItems: "center",
-      marginBottom: 14,
+      marginBottom: scale(14),
     },
+
     codeBox: {
-      padding: 12,
+      width: "20%",
+      paddingVertical: scale(14),
+      paddingHorizontal: scale(14),
       borderWidth: 1,
       borderColor: "#ddd",
-      borderRadius: 12,
+      borderRadius: scale(12),
+      marginBottom: scale(14),
       backgroundColor: "#fff",
+      fontSize: scale(15),
+      color: "#333",
     },
+
     codeText: {
-      fontSize: 16,
+      fontSize: scale(15),
+      marginLeft: scale(6),
+      color: "#333",
     },
+
     passwordContainer: {
       flexDirection: "row",
       alignItems: "center",
       borderWidth: 1,
       borderColor: "#ddd",
-      borderRadius: 12,
-      paddingHorizontal: 12,
-      marginBottom: 14,
+      borderRadius: scale(12),
       backgroundColor: "#fff",
+      paddingHorizontal: scale(12),
+      marginBottom: scale(14),
     },
-    imagePicker: {
-      alignItems: "center",
-      marginBottom: 20,
-    },
-    imagePickerText: {
-      color: "#4A90E2",
-    },
+
     otpButton: {
-      flexDirection: "row",
+      flexDirection: isTablet ? "row" : "row",
       justifyContent: "space-between",
       width: "100%",
+      maxWidth: isTablet ? width * 0.6 : "100%",
+      marginBottom: scale(16),
     },
+
     button: {
-      flex: 1,
+      paddingHorizontal: scale(24),
+      paddingVertical: scale(16),
       backgroundColor: "#4A90E2",
-      padding: 16,
-      borderRadius: 12,
+      borderRadius: scale(12),
       alignItems: "center",
-      marginHorizontal: 6,
+      marginHorizontal: scale(6),
+      shadowColor: "#000",
+      shadowOpacity: 0.2,
+      shadowRadius: 3,
+      elevation: 3,
     },
+
     buttonText: {
       color: "#fff",
+      fontSize: scale(16),
       fontWeight: "600",
     },
+
+    loginLink: {
+      fontSize: scale(14),
+      color: "#333",
+      marginTop: scale(14),
+      textAlign: "center",
+    },
+
     otpContainer: {
       flexDirection: "row",
       justifyContent: "center",
-      marginBottom: 24,
+      marginBottom: scale(24),
     },
+
     otpInput: {
-      width: 50,
-      height: 55,
+      width: otpBoxSize,
+      height: otpBoxSize * 1.1,
       borderWidth: 1,
       borderColor: "#ddd",
-      borderRadius: 12,
+      borderRadius: scale(12),
       textAlign: "center",
-      fontSize: 20,
-      marginHorizontal: 6,
+      fontSize: scale(20),
+      marginHorizontal: scale(6),
       backgroundColor: "#fff",
     },
-    loginLink: {
-      fontSize: 14,
-      color: "#333",
-      marginTop: 10,
-      textAlign: "center",
-    },
   });
-
 };
