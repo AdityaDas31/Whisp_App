@@ -67,25 +67,6 @@ const attachmentOptions = [
     { name: "Poll", icon: "bar-chart-outline", type: "poll" },
 ];
 
-// Preview shown for remote media that hasn't been downloaded locally
-const BlurredMediaPreview = ({ thumbnailUri, progress, onDownload }) => (
-    <Pressable onPress={onDownload} style={styles.blurredPreview}>
-        <Image source={{ uri: thumbnailUri }} style={styles.blurredImage} blurRadius={20} />
-        <View style={styles.blurredOverlay} />
-
-        {progress > 0 ? (
-            <>
-                <ActivityIndicator color="#fff" />
-                <Text style={styles.progressText}>{progress}%</Text>
-            </>
-        ) : (
-            <>
-                <Ionicons name="download-outline" size={42} color="#fff" />
-                <Text style={styles.downloadText}>Download</Text>
-            </>
-        )}
-    </Pressable>
-);
 
 
 
@@ -136,6 +117,7 @@ export default function ChatScreen() {
     const scale = (size) => (windowWidth / guidelineBaseWidth) * size;
     const verticalScale = (size) => (windowHeight / 812) * size;
 
+    const styles = createStyles(windowWidth, windowHeight);
 
     const fullscreenPlayer = useVideoPlayer(
         fullscreenMedia?.uri ?? null,
@@ -221,6 +203,27 @@ export default function ChatScreen() {
             minute: "2-digit",
         });
     };
+
+    // Preview shown for remote media that hasn't been downloaded locally
+    const BlurredMediaPreview = ({ thumbnailUri, progress, onDownload }) => (
+        <Pressable onPress={onDownload} style={styles.blurredPreview}>
+            <Image source={{ uri: thumbnailUri }} style={styles.blurredImage} blurRadius={20} />
+            <View style={styles.blurredOverlay} />
+
+            {progress > 0 ? (
+                <>
+                    <ActivityIndicator color="#fff" />
+                    <Text style={styles.progressText}>{progress}%</Text>
+                </>
+            ) : (
+                <>
+                    <Ionicons name="download-outline" size={42} color="#fff" />
+                    <Text style={styles.downloadText}>Download</Text>
+                </>
+            )}
+        </Pressable>
+    );
+
 
     const renderItem = ({ item }) => {
         // console.log("media", item.media);
@@ -879,7 +882,7 @@ export default function ChatScreen() {
         });
     };
 
-    const styles = createStyles(windowWidth, windowHeight);
+
 
 
 
@@ -980,115 +983,115 @@ export default function ChatScreen() {
             )}
 
             {/* Messages + Input */}
-        
-                <View style={{ flex: 1, }}>
-                    <KeyboardAwareFlatList
-                        inverted
-                        ref={flatListRef}
-                        data={[...chatMessages].reverse()}
-                        keyExtractor={(item) => item._id}
-                        renderItem={renderItem}
-                        contentContainerStyle={{
-                            paddingTop: scale(8),
-                            paddingBottom: scale(8),
-                        }}
-                        enableOnAndroid
-                        enableAutomaticScroll
-                        keyboardShouldPersistTaps="handled"
-                        keyboardOpeningTime={0}
-                        extraScrollHeight={Platform.OS === "ios" ? 20 : 80}
-                        extraHeight={0}
+
+            <View style={{ flex: 1, }}>
+                <KeyboardAwareFlatList
+                    inverted
+                    ref={flatListRef}
+                    data={[...chatMessages].reverse()}
+                    keyExtractor={(item) => item._id}
+                    renderItem={renderItem}
+                    contentContainerStyle={{
+                        paddingTop: scale(8),
+                        paddingBottom: scale(8),
+                    }}
+                    enableOnAndroid
+                    enableAutomaticScroll
+                    keyboardShouldPersistTaps="handled"
+                    keyboardOpeningTime={0}
+                    extraScrollHeight={Platform.OS === "ios" ? 20 : 80}
+                    extraHeight={0}
+                />
+
+
+                {/* Input */}
+                <View style={[styles.inputContainer, { backgroundColor: theme.backgroundColor }]}>
+                    {/* Emoji / Keyboard Toggle */}
+
+                    <TouchableOpacity style={styles.iconLeft} onPress={toggleEmojiKeyboard}>
+                        {showEmoji ? <Entypo name="keyboard" size={24} color="#555" /> : <Ionicons name="happy-outline" size={24} color="#555" />}
+                    </TouchableOpacity>
+
+                    {/* TextInput */}
+                    <TextInput
+                        ref={inputRef}
+                        style={styles.inputWithIcons}
+                        value={text}
+                        onChangeText={handleChange}
+                        placeholder="Type a message..."
+                        placeholderTextColor="#A1A1A1"
+                        multiline
                     />
 
-
-                    {/* Input */}
-                    <View style={[styles.inputContainer, { backgroundColor: theme.backgroundColor }]}>
-                        {/* Emoji / Keyboard Toggle */}
-
-                        <TouchableOpacity style={styles.iconLeft} onPress={toggleEmojiKeyboard}>
-                            {showEmoji ? <Entypo name="keyboard" size={24} color="#555" /> : <Ionicons name="happy-outline" size={24} color="#555" />}
-                        </TouchableOpacity>
-
-                        {/* TextInput */}
-                        <TextInput
-                            ref={inputRef}
-                            style={styles.inputWithIcons}
-                            value={text}
-                            onChangeText={handleChange}
-                            placeholder="Type a message..."
-                            placeholderTextColor="#A1A1A1"
-                            multiline
-                        />
-
-                        {showPopup && (
-                            <Animated.View style={[styles.popup, { opacity: popupAnim }]}>
-                                <Text>Calculate this expression?</Text>
-                                <TouchableOpacity onPress={handleCalculate} style={styles.button}>
-                                    <Text style={{ color: "white" }}>Yes</Text>
-                                </TouchableOpacity>
-                                <TouchableOpacity onPress={() => setShowPopup(false)} style={[styles.button, { backgroundColor: "gray" }]}>
-                                    <Text style={{ color: "white" }}>No</Text>
-                                </TouchableOpacity>
-                            </Animated.View>
-                        )}
-
-                        {/* Paperclip */}
-                        <TouchableOpacity
-                            style={[styles.attachIcon, { right: text.length > 0 || showEmoji ? 70 : 100 }]}
-                            onPress={() => setShowAttachModal(true)}
-                        >
-                            <Ionicons name="attach-outline" size={24} color="#555" />
-                        </TouchableOpacity>
-
-                        {/* Camera */}
-                        {!text.length && !showEmoji && (
-                            <TouchableOpacity style={styles.iconRight} onPress={openCamera}>
-                                <Ionicons name="camera-outline" size={24} color="#555" />
+                    {showPopup && (
+                        <Animated.View style={[styles.popup, { opacity: popupAnim }]}>
+                            <Text>Calculate this expression?</Text>
+                            <TouchableOpacity onPress={handleCalculate} style={styles.button}>
+                                <Text style={{ color: "white" }}>Yes</Text>
                             </TouchableOpacity>
-                        )}
-
-                        {/* Send */}
-                        <TouchableOpacity onPress={handleSend} style={[styles.sendButton, { backgroundColor: theme.buttonBg }]}>
-                            <Ionicons name="send" size={20} style={{ color: theme.buttonText }} />
-                        </TouchableOpacity>
-                    </View>
-
-
-                    {/* Custom Emoji Keyboard */}
-                    {showEmoji && (
-                        <View style={[styles.emojiContainer, { height: emojiHeight }]}>
-                            <ScrollView
-                                showsVerticalScrollIndicator={false}
-                                contentContainerStyle={styles.emojiGrid}
-                            >
-                                {emojis.map((emoji, idx) => (
-                                    <TouchableOpacity
-                                        key={idx}
-                                        onPress={() => {
-                                            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-                                            addEmoji(emoji);
-                                        }}
-                                        style={styles.emojiButton}
-                                    >
-                                        <Text style={{ fontSize: 28 }}>{emoji}</Text>
-                                    </TouchableOpacity>
-                                ))}
-                            </ScrollView>
-
-                            {/* Delete button fixed at bottom right */}
-                            <TouchableOpacity
-                                style={styles.deleteButton}
-                                onPress={() => {
-                                    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-                                    removeEmoji();
-                                }}
-                            >
-                                <Ionicons name="backspace-outline" size={28} color="#555" />
+                            <TouchableOpacity onPress={() => setShowPopup(false)} style={[styles.button, { backgroundColor: "gray" }]}>
+                                <Text style={{ color: "white" }}>No</Text>
                             </TouchableOpacity>
-                        </View>
+                        </Animated.View>
                     )}
 
+                    {/* Paperclip */}
+                    <TouchableOpacity
+                        style={[styles.attachIcon, { right: text.length > 0 || showEmoji ? 70 : 100 }]}
+                        onPress={() => setShowAttachModal(true)}
+                    >
+                        <Ionicons name="attach-outline" size={24} color="#555" />
+                    </TouchableOpacity>
+
+                    {/* Camera */}
+                    {!text.length && !showEmoji && (
+                        <TouchableOpacity style={styles.iconRight} onPress={openCamera}>
+                            <Ionicons name="camera-outline" size={24} color="#555" />
+                        </TouchableOpacity>
+                    )}
+
+                    {/* Send */}
+                    <TouchableOpacity onPress={handleSend} style={[styles.sendButton, { backgroundColor: theme.buttonBg }]}>
+                        <Ionicons name="send" size={20} style={{ color: theme.buttonText }} />
+                    </TouchableOpacity>
                 </View>
+
+
+                {/* Custom Emoji Keyboard */}
+                {showEmoji && (
+                    <View style={[styles.emojiContainer, { height: emojiHeight }]}>
+                        <ScrollView
+                            showsVerticalScrollIndicator={false}
+                            contentContainerStyle={styles.emojiGrid}
+                        >
+                            {emojis.map((emoji, idx) => (
+                                <TouchableOpacity
+                                    key={idx}
+                                    onPress={() => {
+                                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+                                        addEmoji(emoji);
+                                    }}
+                                    style={styles.emojiButton}
+                                >
+                                    <Text style={{ fontSize: 28 }}>{emoji}</Text>
+                                </TouchableOpacity>
+                            ))}
+                        </ScrollView>
+
+                        {/* Delete button fixed at bottom right */}
+                        <TouchableOpacity
+                            style={styles.deleteButton}
+                            onPress={() => {
+                                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+                                removeEmoji();
+                            }}
+                        >
+                            <Ionicons name="backspace-outline" size={28} color="#555" />
+                        </TouchableOpacity>
+                    </View>
+                )}
+
+            </View>
 
 
             {/* Profile Modal */}

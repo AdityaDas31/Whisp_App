@@ -146,13 +146,14 @@ export default function RootLayout() {
     SpaceMono: require("../assets/fonts/SpaceMono-Regular.ttf"),
   });
 
-  useEffect(() => {
-    if (Platform.OS === "android") {
-      NavigationBar.setPositionAsync("relative");
-      NavigationBar.setBackgroundColorAsync("#F7F8FA");
-      NavigationBar.setButtonStyleAsync("dark");
-    }
-  }, []);
+//  useEffect(() => {
+//   if (Platform.OS === "android") {
+//     NavigationBar.setPositionAsync("absolute");
+//     NavigationBar.setBackgroundColorAsync("transparent");
+//     NavigationBar.setButtonStyleAsync("light");
+//   }
+// }, []);
+
 
 
   useEffect(() => {
