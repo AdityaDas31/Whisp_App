@@ -8,18 +8,27 @@ import {
   TouchableOpacity,
   ScrollView,
   Alert,
+  useWindowDimensions
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
 import * as ImagePicker from "expo-image-picker";
-import { SafeAreaProvider } from "react-native-safe-area-context";
 import { useAuth } from "../context/AuthContext";
 import axios from "axios";
 import { API_BASE_URL } from "../config";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function ProfileScreen() {
+  const { width, height } = useWindowDimensions();
+
+  const guidelineBaseWidth = 375;
+  const scale = (size) => (width / guidelineBaseWidth) * size;
+  const isTablet = width >= 768;
+  const styles = createStyles(width);
+
+
   const navigation = useNavigation();
-  const { user, fetchProfile, token } = useAuth();
+  const { user, fetchProfile, token, logout } = useAuth();
 
   const [name, setName] = useState(user?.name || "");
   const [about, setAbout] = useState(user?.about || "");
@@ -28,7 +37,7 @@ export default function ProfileScreen() {
   // Pick image
   const pickImage = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
-       mediaTypes: ['images'],
+      mediaTypes: ['images'],
       quality: 0.7,
     });
 
@@ -68,8 +77,22 @@ export default function ProfileScreen() {
     }
   };
 
+  const handleLogout = () => {
+    Alert.alert("Logout", "Are you sure you want to logout?", [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Logout",
+        style: "destructive",
+        onPress: () => {
+          logout();
+          navigation.navigate("LoginScreen");
+        },
+      },
+    ]);
+  }
+
   return (
-    <SafeAreaProvider style={styles.safeArea} edges={["top"]}>
+    <SafeAreaView style={styles.safeArea}>
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
@@ -100,6 +123,7 @@ export default function ProfileScreen() {
             onChangeText={setName}
             style={styles.input}
             placeholder="Enter your name"
+            placeholderTextColor="#A1A1A1"
           />
         </View>
 
@@ -111,6 +135,7 @@ export default function ProfileScreen() {
             onChangeText={setAbout}
             style={styles.input}
             placeholder="Write something about you"
+            placeholderTextColor="#A1A1A1"
           />
         </View>
 
@@ -118,76 +143,123 @@ export default function ProfileScreen() {
         <TouchableOpacity style={styles.saveBtn} onPress={handleSave}>
           <Text style={styles.saveText}>Save</Text>
         </TouchableOpacity>
+        <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout}>
+          <Text style={styles.saveText}>Logout</Text>
+        </TouchableOpacity>
       </ScrollView>
-    </SafeAreaProvider>
+    </SafeAreaView>
   );
 }
 
-const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: "#F7F8FA" },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 15,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: "#E5E5EA",
-    backgroundColor: "#fff",
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: "600",
-    marginLeft: 15,
-    color: "#1C1C1E",
-  },
-  container: {
-    padding: 20,
-    alignItems: "center",
-  },
-  avatarWrapper: {
-    position: "relative",
-    marginBottom: 25,
-  },
-  avatar: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-  },
-  editIcon: {
-    position: "absolute",
-    bottom: 0,
-    right: 0,
-    backgroundColor: "#0A84FF",
-    borderRadius: 18,
-    padding: 6,
-  },
-  inputGroup: {
-    width: "100%",
-    marginBottom: 20,
-  },
-  label: {
-    fontSize: 14,
-    color: "#8E8E93",
-    marginBottom: 5,
-  },
-  input: {
-    borderWidth: 1,
-    borderColor: "#E5E5EA",
-    borderRadius: 10,
-    padding: 12,
-    fontSize: 16,
-    backgroundColor: "#fff",
-  },
-  saveBtn: {
-    marginTop: 30,
-    backgroundColor: "#0A84FF",
-    paddingVertical: 14,
-    paddingHorizontal: 50,
-    borderRadius: 12,
-  },
-  saveText: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: "#fff",
-  },
-});
+const createStyles = (width) => {
+  const guidelineBaseWidth = 375;
+  const scale = (size) => (width / guidelineBaseWidth) * size;
+  const isTablet = width >= 768;
+
+  const avatarSize = isTablet
+    ? Math.min(width * 0.22, 180)
+    : Math.min(width * 0.32, 140);
+
+  return StyleSheet.create({
+    safeArea: { flex: 1, backgroundColor: "#F7F8FA" },
+    header: {
+      flexDirection: "row",
+      alignItems: "center",
+      paddingHorizontal: scale(18),
+      paddingVertical: scale(14),
+      borderBottomWidth: 1,
+      borderBottomColor: "#E5E5EA",
+      backgroundColor: "#fff",
+    },
+
+    headerTitle: {
+      fontSize: scale(isTablet ? 20 : 18),
+      fontWeight: "600",
+      marginLeft: scale(14),
+      color: "#1C1C1E",
+    },
+
+    container: {
+      paddingHorizontal: scale(24),
+      paddingTop: scale(30),
+      alignItems: "center",
+    },
+
+    avatarWrapper: {
+      position: "relative",
+      marginBottom: scale(30),
+    },
+
+    avatar: {
+      width: avatarSize,
+      height: avatarSize,
+      borderRadius: avatarSize / 2,
+    },
+
+    editIcon: {
+      position: "absolute",
+      bottom: scale(4),
+      right: scale(4),
+      backgroundColor: "#0A84FF",
+      borderRadius: scale(18),
+      padding: scale(8),
+    },
+
+    inputGroup: {
+      width: "100%",
+      maxWidth: isTablet ? width * 0.6 : "100%",
+      marginBottom: scale(22),
+    },
+
+    label: {
+      fontSize: scale(14),
+      color: "#8E8E93",
+      marginBottom: scale(6),
+    },
+
+    input: {
+      borderWidth: 1,
+      borderColor: "#E5E5EA",
+      borderRadius: scale(14),
+      paddingVertical: scale(14),
+      paddingHorizontal: scale(14),
+      fontSize: scale(16),
+      backgroundColor: "#fff",
+    },
+
+    saveBtn: {
+      marginTop: scale(30),
+      backgroundColor: "#0A84FF",
+      paddingVertical: scale(16),
+      borderRadius: scale(14),
+      width: "100%",
+      maxWidth: isTablet ? width * 0.6 : "100%",
+      alignItems: "center",
+      shadowColor: "#000",
+      shadowOpacity: 0.2,
+      shadowRadius: 3,
+      elevation: 3,
+    },
+
+    logoutBtn: {
+      marginTop: scale(30),
+      backgroundColor: "#ff0a0a",
+      paddingVertical: scale(16),
+      borderRadius: scale(14),
+      width: "100%",
+      maxWidth: isTablet ? width * 0.6 : "100%",
+      alignItems: "center",
+      shadowColor: "#000",
+      shadowOpacity: 0.2,
+      shadowRadius: 3,
+      elevation: 3,
+    },
+
+    saveText: {
+      fontSize: scale(16),
+      fontWeight: "600",
+      color: "#fff",
+    },
+  });
+};
+

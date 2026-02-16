@@ -11,7 +11,7 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-export default function AttachModal({
+export default function  ({
     visible,
     onClose,
     options = [],

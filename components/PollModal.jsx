@@ -38,7 +38,7 @@ export default function PollModal({
                         placeholder="Ask a question"
                         value={pollTopic}
                         onChangeText={setPollTopic}
-                        placeholderTextColor="#999"
+                        placeholderTextColor="#A1A1A1"
                         style={styles.questionInput}
                     />
 
@@ -52,7 +52,7 @@ export default function PollModal({
                                 onChangeText={(text) =>
                                     updatePollOption(idx, text)
                                 }
-                                placeholderTextColor="#999"
+                                placeholderTextColor="#A1A1A1"
                                 style={styles.optionInput}
                             />
                         </View>

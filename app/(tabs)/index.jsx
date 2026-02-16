@@ -13,14 +13,23 @@ import {
   Text,
   TouchableOpacity,
   View,
+  useWindowDimensions
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuth } from "../../context/AuthContext";
 import { useChats } from "../../context/ChatContext";
 import { API_BASE_URL } from "../../config";
 import { StatusBar } from "expo-status-bar";
+import { useRouter } from "expo-router";
+
+
 
 export default function HomeScreen() {
+  const { width, height } = useWindowDimensions();
+  const guidelineBaseWidth = 375;
+
+  const scale = (size) => (width / guidelineBaseWidth) * size;
+  
   const [loading, setLoading] = useState(false);
   const [matchedContacts, setMatchedContacts] = useState([]);
   const [contactModalVisible, setContactModalVisible] = useState(false);
@@ -32,6 +41,8 @@ export default function HomeScreen() {
   const { token, user } = useAuth();
   const { chats, openChat, loadChatsFromLocalDB, dbReady, safeLoadChatsFromLocalDB } = useChats();
   const navigation = useNavigation();
+
+  const router = useRouter();
 
   useEffect(() => {
     getContactsAndSync();
@@ -207,6 +218,7 @@ export default function HomeScreen() {
     );
   };
 
+  const styles = createStyles(width, height);
 
 
   return (
@@ -244,14 +256,17 @@ export default function HomeScreen() {
                       Alert.alert("Error", "Chat could not be opened");
                       return;
                     }
-                    navigation.navigate("ChatScreen", {
-                      chatId: chat._id,
-                      myId: myId,
-                      userId: otherUser._id,
-                      name: item.isGroupChat ? item.chatName : otherUser.name,
-                      profileImage: item.isGroupChat
-                        ? item.groupImage?.url
-                        : otherUser.profileImage?.url,
+                    router.push({
+                      pathname: "/ChatScreen",
+                      params: {
+                        chatId: chat._id,
+                        myId,
+                        userId: otherUser._id,
+                        name: item.isGroupChat ? item.chatName : otherUser.name,
+                        profileImage: item.isGroupChat
+                          ? item.groupImage?.url
+                          : otherUser.profileImage?.url,
+                      },
                     });
                   }}
                 >
@@ -467,160 +482,240 @@ export default function HomeScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: "#F7F8FA" },
+const createStyles = (width, height) => {
+  const guidelineBaseWidth = 375;
+  const scale = (size) => (width / guidelineBaseWidth) * size;
 
-  // Header
-  header: {
-    backgroundColor: "#F7F8FA",
-    padding: 16,
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    borderBottomWidth: 1,
-    borderBottomColor: "#E5E5EA",
-  },
-  headerTitle: { fontSize: 22, fontWeight: "700", color: "#1C1C1E" },
-  headerIcons: { flexDirection: "row", alignItems: "center" },
-  icon: { marginHorizontal: 10 },
+  return StyleSheet.create({
+    safeArea: { flex: 1, backgroundColor: "#F7F8FA" },
 
-  // Body
-  body: { flex: 1, paddingHorizontal: 12, paddingTop: 12 },
+    header: {
+      backgroundColor: "#F7F8FA",
+      padding: scale(16),
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "center",
+      borderBottomWidth: 1,
+      borderBottomColor: "#E5E5EA",
+    },
 
-  // Chat Card
-  chatCard: {
-    flexDirection: "row",
-    alignItems: "center",
-    padding: 16,
-    marginVertical: 6,
-    marginHorizontal: 4,
-    backgroundColor: "#FFFFFF",
-    borderRadius: 12,
-    shadowColor: "#000",
-    shadowOpacity: 0.05,
-    shadowOffset: { width: 0, height: 3 },
-    shadowRadius: 6,
-    elevation: 2,
-  },
-  avatar: { width: 50, height: 50, borderRadius: 25, marginRight: 14 },
-  chatInfo: { flex: 1, justifyContent: "center" },
-  chatHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginBottom: 2,
-  },
-  chatName: { fontSize: 16, fontWeight: "600", color: "#1C1C1E" },
-  chatTime: { fontSize: 12, color: "#6C6C6C" },
-  chatMessage: { fontSize: 14, color: "#6C6C6C" },
-  empty: { textAlign: "center", marginTop: 30, color: "#A1A1A1" },
+    headerTitle: {
+      fontSize: scale(22),
+      fontWeight: "700",
+      color: "#1C1C1E",
+    },
 
-  // FAB
-  fab: {
-    position: "absolute",
-    bottom: 25,
-    right: 25,
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: "#0A84FF",
-    shadowColor: "#0A84FF",
-    shadowOpacity: 0.3,
-    shadowOffset: { width: 0, height: 4 },
-    shadowRadius: 10,
-    elevation: 5,
-  },
+    headerIcons: { flexDirection: "row", alignItems: "center" },
 
-  // Modal
-  modalContainer: { flex: 1, backgroundColor: "#F7F8FA" },
-  modalHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    padding: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: "#E5E5EA",
-  },
-  modalTitle: { fontSize: 18, fontWeight: "600", color: "#1C1C1E" },
-  contactCard: {
-    flexDirection: "row",
-    alignItems: "center",
-    padding: 14,
-    marginVertical: 4,
-    marginHorizontal: 4,
-    backgroundColor: "#FFFFFF",
-    borderRadius: 10,
-    shadowColor: "#000",
-    shadowOpacity: 0.05,
-    shadowOffset: { width: 0, height: 2 },
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  contactName: { fontSize: 16, fontWeight: "500", color: "#1C1C1E" },
-  contactPhone: { fontSize: 14, color: "#6C6C6C", marginTop: 2 },
+    icon: { marginHorizontal: scale(10) },
 
-  // Profile Modal
-  profileOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.2)", justifyContent: "center", alignItems: "center" },
-  profileModal: {
-    backgroundColor: "#FFFFFF",
-    borderRadius: 14,
-    padding: 20,
-    width: "85%",
-    alignItems: "center",
-    shadowColor: "#000",
-    shadowOpacity: 0.08,
-    shadowOffset: { width: 0, height: 6 },
-    shadowRadius: 12,
-    elevation: 5,
-  },
-  profileImage: { width: 110, height: 110, borderRadius: 55, marginBottom: 12 },
-  profileName: { fontSize: 20, fontWeight: "600", marginBottom: 16, color: "#1C1C1E" },
-  actionRow: { flexDirection: "row", justifyContent: "space-around", width: "100%" },
-  actionButton: { alignItems: "center", marginHorizontal: 12 },
-  actionLabel: { fontSize: 13, marginTop: 6, color: "#0A84FF", fontWeight: "500" },
-  closeProfileBtn: { position: "absolute", top: 10, right: 10 },
+    body: {
+      flex: 1,
+      paddingHorizontal: scale(12),
+      paddingTop: scale(12),
+    },
 
-  menuOverlay: {
-    flex: 1,
-    justifyContent: "flex-start",
-    alignItems: "flex-end",
-    backgroundColor: "rgba(0,0,0,0.2)",
-    paddingTop: 50,
-    paddingRight: 10,
-  },
-  menuContainer: {
-    backgroundColor: "#fff",
-    borderRadius: 8,
-    paddingVertical: 5,
-    width: 200,
-    elevation: 5,
-  },
-  menuItem: {
-    paddingVertical: 12,
-    paddingHorizontal: 15,
-  },
-  menuText: {
-    fontSize: 16,
-    color: "#1C1C1E",
-  },
+    chatCard: {
+      flexDirection: "row",
+      alignItems: "center",
+      padding: scale(14),
+      marginVertical: scale(6),
+      backgroundColor: "#FFFFFF",
+      borderRadius: scale(12),
+      elevation: 2,
+    },
 
-  unreadBadge: {
-    backgroundColor: "#0A84FF",
-    borderRadius: 12,
-    minWidth: 24,
-    height: 24,
-    justifyContent: "center",
-    alignItems: "center",
-    top: 40,
-    position: "absolute",
-    right: 20,
-  },
-  unreadText: {
-    color: "white",
-    fontSize: 12,
-    fontWeight: "600",
-  },
+    avatar: {
+      width: scale(50),
+      height: scale(50),
+      borderRadius: scale(25),
+      marginRight: scale(14),
+    },
+
+    chatInfo: { flex: 1 },
+
+    chatHeader: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      marginBottom: scale(4),
+    },
+
+    chatName: {
+      fontSize: scale(16),
+      fontWeight: "600",
+      color: "#1C1C1E",
+      maxWidth: width * 0.6,
+    },
+
+    chatTime: {
+      fontSize: scale(12),
+      color: "#6C6C6C",
+    },
+
+    chatMessage: {
+      fontSize: scale(14),
+      color: "#6C6C6C",
+      flex: 1,
+    },
+
+    empty: {
+      textAlign: "center",
+      marginTop: scale(30),
+      color: "#A1A1A1",
+      fontSize: scale(14),
+    },
+
+    fab: {
+      position: "absolute",
+      bottom: height * 0.04,
+      right: width * 0.06,
+      width: scale(60),
+      height: scale(60),
+      borderRadius: scale(30),
+      justifyContent: "center",
+      alignItems: "center",
+      backgroundColor: "#0A84FF",
+      elevation: 5,
+    },
+
+    modalContainer: { flex: 1, backgroundColor: "#F7F8FA" },
+
+    modalHeader: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "center",
+      padding: scale(16),
+      borderBottomWidth: 1,
+      borderBottomColor: "#E5E5EA",
+    },
+
+    modalTitle: {
+      fontSize: scale(18),
+      fontWeight: "600",
+      color: "#1C1C1E",
+    },
+
+    contactCard: {
+      flexDirection: "row",
+      alignItems: "center",
+      padding: scale(14),
+      marginVertical: scale(4),
+      backgroundColor: "#FFFFFF",
+      borderRadius: scale(10),
+      elevation: 2,
+    },
+
+    contactName: {
+      fontSize: scale(16),
+      fontWeight: "500",
+      color: "#1C1C1E",
+    },
+
+    contactPhone: {
+      fontSize: scale(14),
+      color: "#6C6C6C",
+      marginTop: scale(2),
+    },
+
+    profileOverlay: {
+      flex: 1,
+      backgroundColor: "rgba(0,0,0,0.2)",
+      justifyContent: "center",
+      alignItems: "center",
+    },
+
+    profileModal: {
+      backgroundColor: "#FFFFFF",
+      borderRadius: scale(14),
+      padding: scale(20),
+      width: width * 0.85,
+      alignItems: "center",
+    },
+
+    profileImage: {
+      width: scale(110),
+      height: scale(110),
+      borderRadius: scale(55),
+      marginBottom: scale(12),
+    },
+
+    profileName: {
+      fontSize: scale(20),
+      fontWeight: "600",
+      marginBottom: scale(16),
+      color: "#1C1C1E",
+    },
+
+    actionRow: {
+      flexDirection: "row",
+      justifyContent: "space-around",
+      width: "100%",
+    },
+
+    actionButton: {
+      alignItems: "center",
+      marginHorizontal: scale(8),
+    },
+
+    actionLabel: {
+      fontSize: scale(13),
+      marginTop: scale(6),
+      color: "#0A84FF",
+      fontWeight: "500",
+    },
+
+    closeProfileBtn: {
+      position: "absolute",
+      top: scale(10),
+      right: scale(10),
+    },
+
+    menuOverlay: {
+      flex: 1,
+      justifyContent: "flex-start",
+      alignItems: "flex-end",
+      backgroundColor: "rgba(0,0,0,0.2)",
+      paddingTop: height * 0.07,
+      paddingRight: scale(10),
+    },
+
+    menuContainer: {
+      backgroundColor: "#fff",
+      borderRadius: scale(8),
+      paddingVertical: scale(5),
+      width: width * 0.5,
+      elevation: 5,
+    },
+
+    menuItem: {
+      paddingVertical: scale(12),
+      paddingHorizontal: scale(15),
+    },
+
+    menuText: {
+      fontSize: scale(16),
+      color: "#1C1C1E",
+    },
+
+    unreadBadge: {
+      position: "absolute",
+      right: scale(15),
+      bottom: scale(15),
+      backgroundColor: "#0A84FF",
+      borderRadius: scale(12),
+      minWidth: scale(24),
+      height: scale(24),
+      justifyContent: "center",
+      alignItems: "center",
+      paddingHorizontal: scale(6),
+    },
+
+    unreadText: {
+      color: "white",
+      fontSize: scale(12),
+      fontWeight: "600",
+    },
+  });
+};
 
 
-});
