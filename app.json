@@ -1,11 +1,15 @@
 {
   "expo": {
     "name": "Whisp",
-    "slug": "Whisp",
+    "slug": "frontend",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "Whisp",
+    "notification": {
+      "icon": "./assets/images/notification-icon.png",
+      "color": "#FF9500"
+    },
+    "scheme": ["whisp"],
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
@@ -14,12 +18,18 @@
         "UIBackgroundModes": [
           "remote-notification"
         ]
+      },
+      "icon": {
+        "dark": "./assets/icons/ios-dark.png",
+        "light": "./assets/icons/ios-light.png",
+        "tinted": "./assets/icons/ios-tinted.png"
       }
     },
     "android": {
       "softwareKeyboardLayoutMode": "resize",
       "adaptiveIcon": {
-        "foregroundImage": "./assets/images/adaptive-icon.png",
+        "foregroundImage": "./assets/icons/adaptive-icon.png",
+        "monochromeImage": "./assets/icons/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": false,
@@ -33,19 +43,10 @@
         "android.permission.WRITE_EXTERNAL_STORAGE",
         "android.permission.READ_MEDIA_VISUAL_USER_SELECTED",
         "android.permission.ACCESS_MEDIA_LOCATION",
-        "android.permission.READ_MEDIA_AUDIO",
-        "android.permission.NOTIFICATIONS",
-        "android.permission.CAMERA",
-        "android.permission.READ_MEDIA_IMAGES",
-        "android.permission.READ_MEDIA_VIDEO",
-        "android.permission.RECORD_AUDIO",
-        "android.permission.READ_EXTERNAL_STORAGE",
-        "android.permission.WRITE_EXTERNAL_STORAGE",
-        "android.permission.READ_MEDIA_VISUAL_USER_SELECTED",
-        "android.permission.ACCESS_MEDIA_LOCATION",
         "android.permission.READ_MEDIA_AUDIO"
       ],
-      "package": "com.lonewolf2024.Whisp"
+      "package": "com.lonewolf2024.Whisp",
+      "googleServicesFile": "./google-services.json"
     },
     "web": {
       "bundler": "metro",
@@ -95,12 +96,12 @@
     "experiments": {
       "typedRoutes": true
     },
+    "owner": "lonewolf2024",
     "extra": {
       "router": {},
       "eas": {
         "projectId": "6eda410f-8f28-471b-855a-68b1697cbe8e"
       }
-    },
-    "owner": "lonewolf2024"
+    }
   }
 }

@@ -1,5 +1,4 @@
 
-import { useRoute } from "@react-navigation/native";
 import { useEffect, useRef, useState } from "react";
 
 import * as Contacts from "expo-contacts";
@@ -8,7 +7,8 @@ import * as Haptics from "expo-haptics";
 import * as ImagePicker from "expo-image-picker";
 import * as Location from "expo-location";
 import * as MediaLibrary from "expo-media-library";
-import { VideoView, useVideoPlayer } from "expo-video";
+import { useLocalSearchParams } from "expo-router";
+import { useVideoPlayer } from "expo-video";
 
 import { Entypo, Ionicons } from "@expo/vector-icons";
 import {
@@ -17,6 +17,7 @@ import {
     Animated,
     Image,
     Keyboard,
+    KeyboardAvoidingView,
     Linking,
     Platform,
     Pressable,
@@ -26,8 +27,9 @@ import {
     Text,
     TextInput,
     TouchableOpacity,
+    useWindowDimensions,
     View,
-    KeyboardAvoidingView
+    Dimensions,
 } from "react-native";
 import { KeyboardAwareFlatList } from "react-native-keyboard-aware-scroll-view";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -37,12 +39,12 @@ import { useChats } from "../context/ChatContext";
 import { useChatTheme } from "../context/ChatThemeContext";
 
 import AttachModal from "../components/AttachModal";
+import ChatMediaBubble from "../components/ChatMediaBubble";
 import ContactsModal from "../components/ContactsModal";
 import MediaPreviewModal from "../components/MediaPreviewModal";
 import MediaViewerModal from "../components/MediaViewerModal";
 import PollModal from "../components/PollModal";
 import ProfileModal from "../components/ProfileModal";
-import ChatMediaBubble from "../components/ChatMediaBubble";
 
 import { evaluate } from "mathjs";
 import { updateMessageLocalUri } from "../db/chatDB";
@@ -65,31 +67,11 @@ const attachmentOptions = [
     { name: "Poll", icon: "bar-chart-outline", type: "poll" },
 ];
 
-// Preview shown for remote media that hasn't been downloaded locally
-const BlurredMediaPreview = ({ thumbnailUri, progress, onDownload }) => (
-    <Pressable onPress={onDownload} style={styles.blurredPreview}>
-        <Image source={{ uri: thumbnailUri }} style={styles.blurredImage} blurRadius={20} />
-        <View style={styles.blurredOverlay} />
-
-        {progress > 0 ? (
-            <>
-                <ActivityIndicator color="#fff" />
-                <Text style={styles.progressText}>{progress}%</Text>
-            </>
-        ) : (
-            <>
-                <Ionicons name="download-outline" size={42} color="#fff" />
-                <Text style={styles.downloadText}>Download</Text>
-            </>
-        )}
-    </Pressable>
-);
 
 
 
 export default function ChatScreen() {
-    const route = useRoute();
-    const { chatId, name, profileImage, userId, myId } = route.params;
+    const { chatId, name, profileImage, userId, myId } = useLocalSearchParams();
     const { user } = useAuth();
     const { sendMessage, messages, joinChat, userStatus, socket, leaveChat, fetchChats, loadLocalMessages } = useChats();
 
@@ -122,6 +104,20 @@ export default function ChatScreen() {
     const [showViewerControls, setShowViewerControls] = useState(true);
     const controlsTimeoutRef = useRef(null);
 
+
+    // Responsive measurements
+    const { width: windowWidth, height: windowHeight } = useWindowDimensions();
+    const isTablet = windowWidth >= 768;
+    const avatarSize = isTablet ? 56 : 42;
+    const headerFontSize = isTablet ? 20 : 18;
+    const emojiHeight = Math.min(360, windowHeight * 0.45);
+    const blurredPreviewSize = Math.min(420, windowWidth * 0.6);
+
+    const guidelineBaseWidth = 375;
+    const scale = (size) => (windowWidth / guidelineBaseWidth) * size;
+    const verticalScale = (size) => (windowHeight / 812) * size;
+
+    const styles = createStyles(windowWidth, windowHeight);
 
     const fullscreenPlayer = useVideoPlayer(
         fullscreenMedia?.uri ?? null,
@@ -157,6 +153,9 @@ export default function ChatScreen() {
     useEffect(() => {
         joinChat(chatId);
         loadLocalMessages(chatId);
+        if (!name && chatId) {
+            loadLocalMessages(chatId);
+        }
         return () => {
             leaveChat();
             fetchChats(); // refresh unread count
@@ -174,17 +173,6 @@ export default function ChatScreen() {
 
     const chatMessages = messages[chatId] || [];
     const prevMessageCount = useRef(chatMessages.length);
-
-    useEffect(() => {
-        if (chatMessages.length > prevMessageCount.current) {
-            requestAnimationFrame(() => {
-                flatListRef.current?.scrollToEnd({ animated: true });
-            });
-        }
-
-        prevMessageCount.current = chatMessages.length;
-    }, [chatMessages.length]);
-
 
 
 
@@ -215,6 +203,27 @@ export default function ChatScreen() {
             minute: "2-digit",
         });
     };
+
+    // Preview shown for remote media that hasn't been downloaded locally
+    const BlurredMediaPreview = ({ thumbnailUri, progress, onDownload }) => (
+        <Pressable onPress={onDownload} style={styles.blurredPreview}>
+            <Image source={{ uri: thumbnailUri }} style={styles.blurredImage} blurRadius={20} />
+            <View style={styles.blurredOverlay} />
+
+            {progress > 0 ? (
+                <>
+                    <ActivityIndicator color="#fff" />
+                    <Text style={styles.progressText}>{progress}%</Text>
+                </>
+            ) : (
+                <>
+                    <Ionicons name="download-outline" size={42} color="#fff" />
+                    <Text style={styles.downloadText}>Download</Text>
+                </>
+            )}
+        </Pressable>
+    );
+
 
     const renderItem = ({ item }) => {
         // console.log("media", item.media);
@@ -590,6 +599,9 @@ export default function ChatScreen() {
                     link: `https://www.google.com/maps?q=${location.coords.latitude},${location.coords.longitude}`
                 }
             });
+            setTimeout(() => {
+                inputRef.current?.focus();
+            }, 100);
             focusInputSafely();
         }
 
@@ -617,6 +629,9 @@ export default function ChatScreen() {
             } else {
                 alert("No contacts found on device!");
             }
+            setTimeout(() => {
+                inputRef.current?.focus();
+            }, 100);
             focusInputSafely();
 
         }
@@ -625,6 +640,9 @@ export default function ChatScreen() {
         if (type === "poll") {
             // Open poll modal
             setShowPollModal(true);
+            setTimeout(() => {
+                inputRef.current?.focus();
+            }, 100);
             focusInputSafely();
         }
 
@@ -671,6 +689,9 @@ export default function ChatScreen() {
             type: "poll",
             poll: { topic: pollTopic, options: pollOptions },
         });
+        setTimeout(() => {
+            inputRef.current?.focus();
+        }, 100);
     };
 
 
@@ -835,13 +856,6 @@ export default function ChatScreen() {
         };
     }, [fullscreenMedia]);
 
-    useEffect(() => {
-        if (chatMessages.length > 0) {
-            requestAnimationFrame(() => {
-                flatListRef.current?.scrollToEnd({ animated: false });
-            });
-        }
-    }, [chatId]);
 
 
     // Fullscreen viewer derived data
@@ -867,6 +881,8 @@ export default function ChatScreen() {
             inputRef.current?.focus();
         });
     };
+
+
 
 
 
@@ -915,11 +931,22 @@ export default function ChatScreen() {
                 /* ✅ Normal Chat Header */
                 <View style={[styles.header, { backgroundColor: theme.backgroundColor }]}>
                     <TouchableOpacity style={styles.headerLeft} onPress={() => setProfileVisible(true)}>
-                        <Image source={{ uri: profileImage }} style={styles.headerImage} />
+                        <Image
+                            source={{ uri: profileImage }}
+                            style={[
+                                styles.headerImage,
+                                {
+                                    width: avatarSize,
+                                    height: avatarSize,
+                                    borderRadius: avatarSize / 2,
+                                    marginRight: isTablet ? 16 : 12,
+                                },
+                            ]}
+                        />
 
                         {/* Name + Status stacked vertically */}
                         <View style={{ flexDirection: "column" }}>
-                            <Text style={[styles.headerName, { color: theme.textColor }]}>{name}</Text>
+                            <Text style={[styles.headerName, { color: theme.textColor, fontSize: headerFontSize }]}>{name}</Text>
 
                             <View style={{ flexDirection: "row", alignItems: "center", marginTop: 2 }}>
                                 {userStatus[userId]?.online ? (
@@ -956,139 +983,83 @@ export default function ChatScreen() {
             )}
 
             {/* Messages + Input */}
+
             <View style={{ flex: 1, }}>
                 <KeyboardAwareFlatList
+                    inverted
                     ref={flatListRef}
-                    data={chatMessages}
+                    data={[...chatMessages].reverse()}
                     keyExtractor={(item) => item._id}
                     renderItem={renderItem}
                     contentContainerStyle={{
-                        paddingTop: 8,
-                        paddingBottom: 8,
-                        flexGrow: 1,
-                        justifyContent: "flex-end",
+                        paddingTop: scale(8),
+                        paddingBottom: scale(8),
                     }}
                     enableOnAndroid
+                    enableAutomaticScroll
                     keyboardShouldPersistTaps="handled"
-                    enableAutomaticScroll={false}
                     keyboardOpeningTime={0}
-                    extraScrollHeight={12}
+                    extraScrollHeight={Platform.OS === "ios" ? 20 : 80}
                     extraHeight={0}
                 />
 
 
                 {/* Input */}
-                {Platform.OS === "ios" ? (
-                    <KeyboardAvoidingView
-                        behavior="padding"
+                <View style={[styles.inputContainer, { backgroundColor: theme.backgroundColor }]}>
+                    {/* Emoji / Keyboard Toggle */}
+
+                    <TouchableOpacity style={styles.iconLeft} onPress={toggleEmojiKeyboard}>
+                        {showEmoji ? <Entypo name="keyboard" size={24} color="#555" /> : <Ionicons name="happy-outline" size={24} color="#555" />}
+                    </TouchableOpacity>
+
+                    {/* TextInput */}
+                    <TextInput
+                        ref={inputRef}
+                        style={styles.inputWithIcons}
+                        value={text}
+                        onChangeText={handleChange}
+                        placeholder="Type a message..."
+                        placeholderTextColor="#A1A1A1"
+                        multiline
+                    />
+
+                    {showPopup && (
+                        <Animated.View style={[styles.popup, { opacity: popupAnim }]}>
+                            <Text>Calculate this expression?</Text>
+                            <TouchableOpacity onPress={handleCalculate} style={styles.button}>
+                                <Text style={{ color: "white" }}>Yes</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity onPress={() => setShowPopup(false)} style={[styles.button, { backgroundColor: "gray" }]}>
+                                <Text style={{ color: "white" }}>No</Text>
+                            </TouchableOpacity>
+                        </Animated.View>
+                    )}
+
+                    {/* Paperclip */}
+                    <TouchableOpacity
+                        style={[styles.attachIcon, { right: text.length > 0 || showEmoji ? 70 : 100 }]}
+                        onPress={() => setShowAttachModal(true)}
                     >
-                        <View style={[styles.inputContainer, { backgroundColor: theme.backgroundColor }]}>
-                            {/* Emoji / Keyboard Toggle */}
+                        <Ionicons name="attach-outline" size={24} color="#555" />
+                    </TouchableOpacity>
 
-                            <TouchableOpacity style={styles.iconLeft} onPress={toggleEmojiKeyboard}>
-                                {showEmoji ? <Entypo name="keyboard" size={24} color="#555" /> : <Ionicons name="happy-outline" size={24} color="#555" />}
-                            </TouchableOpacity>
-
-                            {/* TextInput */}
-                            <TextInput
-                                ref={inputRef}
-                                style={styles.inputWithIcons}
-                                value={text}
-                                onChangeText={handleChange}
-                                placeholder="Type a message..."
-                                placeholderTextColor="#A1A1A1"
-                                multiline
-                            />
-
-                            {showPopup && (
-                                <Animated.View style={[styles.popup, { opacity: popupAnim }]}>
-                                    <Text>Calculate this expression?</Text>
-                                    <TouchableOpacity onPress={handleCalculate} style={styles.button}>
-                                        <Text style={{ color: "white" }}>Yes</Text>
-                                    </TouchableOpacity>
-                                    <TouchableOpacity onPress={() => setShowPopup(false)} style={[styles.button, { backgroundColor: "gray" }]}>
-                                        <Text style={{ color: "white" }}>No</Text>
-                                    </TouchableOpacity>
-                                </Animated.View>
-                            )}
-
-                            {/* Paperclip */}
-                            <TouchableOpacity
-                                style={[styles.attachIcon, { right: text.length > 0 || showEmoji ? 70 : 100 }]}
-                                onPress={() => setShowAttachModal(true)}
-                            >
-                                <Ionicons name="attach-outline" size={24} color="#555" />
-                            </TouchableOpacity>
-
-                            {/* Camera */}
-                            {!text.length && !showEmoji && (
-                                <TouchableOpacity style={styles.iconRight} onPress={openCamera}>
-                                    <Ionicons name="camera-outline" size={24} color="#555" />
-                                </TouchableOpacity>
-                            )}
-
-                            {/* Send */}
-                            <TouchableOpacity onPress={handleSend} style={[styles.sendButton, { backgroundColor: theme.buttonBg }]}>
-                                <Ionicons name="send" size={20} style={{ color: theme.buttonText }} />
-                            </TouchableOpacity>
-                        </View>
-                    </KeyboardAvoidingView>
-                ) : (
-                    <View style={[styles.inputContainer, { backgroundColor: theme.backgroundColor }]}>
-                        {/* Emoji / Keyboard Toggle */}
-
-                        <TouchableOpacity style={styles.iconLeft} onPress={toggleEmojiKeyboard}>
-                            {showEmoji ? <Entypo name="keyboard" size={24} color="#555" /> : <Ionicons name="happy-outline" size={24} color="#555" />}
+                    {/* Camera */}
+                    {!text.length && !showEmoji && (
+                        <TouchableOpacity style={styles.iconRight} onPress={openCamera}>
+                            <Ionicons name="camera-outline" size={24} color="#555" />
                         </TouchableOpacity>
+                    )}
 
-                        {/* TextInput */}
-                        <TextInput
-                            ref={inputRef}
-                            style={styles.inputWithIcons}
-                            value={text}
-                            onChangeText={handleChange}
-                            placeholder="Type a message..."
-                            placeholderTextColor="#A1A1A1"
-                            multiline
-                        />
+                    {/* Send */}
+                    <TouchableOpacity onPress={handleSend} style={[styles.sendButton, { backgroundColor: theme.buttonBg }]}>
+                        <Ionicons name="send" size={20} style={{ color: theme.buttonText }} />
+                    </TouchableOpacity>
+                </View>
 
-                        {showPopup && (
-                            <Animated.View style={[styles.popup, { opacity: popupAnim }]}>
-                                <Text>Calculate this expression?</Text>
-                                <TouchableOpacity onPress={handleCalculate} style={styles.button}>
-                                    <Text style={{ color: "white" }}>Yes</Text>
-                                </TouchableOpacity>
-                                <TouchableOpacity onPress={() => setShowPopup(false)} style={[styles.button, { backgroundColor: "gray" }]}>
-                                    <Text style={{ color: "white" }}>No</Text>
-                                </TouchableOpacity>
-                            </Animated.View>
-                        )}
-
-                        {/* Paperclip */}
-                        <TouchableOpacity
-                            style={[styles.attachIcon, { right: text.length > 0 || showEmoji ? 70 : 100 }]}
-                            onPress={() => setShowAttachModal(true)}
-                        >
-                            <Ionicons name="attach-outline" size={24} color="#555" />
-                        </TouchableOpacity>
-
-                        {/* Camera */}
-                        {!text.length && !showEmoji && (
-                            <TouchableOpacity style={styles.iconRight} onPress={openCamera}>
-                                <Ionicons name="camera-outline" size={24} color="#555" />
-                            </TouchableOpacity>
-                        )}
-
-                        {/* Send */}
-                        <TouchableOpacity onPress={handleSend} style={[styles.sendButton, { backgroundColor: theme.buttonBg }]}>
-                            <Ionicons name="send" size={20} style={{ color: theme.buttonText }} />
-                        </TouchableOpacity>
-                    </View>
-                )}
 
                 {/* Custom Emoji Keyboard */}
                 {showEmoji && (
-                    <View style={styles.emojiContainer}>
+                    <View style={[styles.emojiContainer, { height: emojiHeight }]}>
                         <ScrollView
                             showsVerticalScrollIndicator={false}
                             contentContainerStyle={styles.emojiGrid}
@@ -1121,6 +1092,7 @@ export default function ChatScreen() {
                 )}
 
             </View>
+
 
             {/* Profile Modal */}
 
@@ -1186,6 +1158,9 @@ export default function ChatScreen() {
                             type: `${previewMedia.type}/${previewMedia.type === "video" ? "mp4" : "jpeg"}`,
                         },
                     });
+                    setTimeout(() => {
+                        inputRef.current?.focus();
+                    }, 100);
                 }}
 
 
@@ -1218,349 +1193,368 @@ export default function ChatScreen() {
     );
 }
 
-const styles = StyleSheet.create({
-    safeArea: { flex: 1, backgroundColor: "#F7F8FA" },
-    header: {
-        flexDirection: "row", alignItems: "center", padding: 12, backgroundColor: "#FFFFFF", justifyContent: "space-between",
-    },
-    headerLeft: { flexDirection: "row", alignItems: "center" },
-    headerImage: { width: 42, height: 42, borderRadius: 21, marginRight: 12 },
-    headerName: { fontSize: 18, fontWeight: "600", color: "#1C1C1E" },
-    headerIcons: { flexDirection: "row" },
-    iconButton: { padding: 10, },
-    headerIcon: {
-        marginHorizontal: 8,
-        color: "#0A84FF",
-    },
+
+const createStyles = (width, height) => {
+    const guidelineBaseWidth = 375;
+    const scale = (size) => (width / guidelineBaseWidth) * size;
+    return StyleSheet.create({
+        safeArea: { flex: 1, backgroundColor: "#F7F8FA" },
+        header: {
+            flexDirection: "row",
+            alignItems: "center",
+            paddingHorizontal: scale(14),
+            paddingVertical: scale(10),
+            justifyContent: "space-between",
+        },
+        headerLeft: { flexDirection: "row", alignItems: "center" },
+        headerImage: {
+            width: scale(42),
+            height: scale(42),
+            borderRadius: scale(21),
+            marginRight: scale(12),
+        },
+        headerName: {
+            fontSize: scale(18),
+            fontWeight: "600",
+        },
+        headerIcons: { flexDirection: "row" },
+        iconButton: { padding: 10, },
+        headerIcon: {
+            marginHorizontal: 8,
+            color: "#0A84FF",
+        },
 
 
-    messageWrapper: {
-        flexDirection: "row",
-        alignItems: "flex-end",
-        marginVertical: 4,
-        marginHorizontal: 8,
-    },
-    myWrapper: { justifyContent: "flex-end" },
-    otherWrapper: { justifyContent: "flex-start" },
-    messageBubble: {
-        maxWidth: "80%",
-        minWidth: 40,
-        borderRadius: 16,
-    },
-    myMessage: { borderTopRightRadius: 4 },
-    otherMessage: { borderTopLeftRadius: 4 },
-    textMessage: { fontSize: 16, color: "#222", lineHeight: 22, width: "auto" },
+        messageWrapper: {
+            flexDirection: "row",
+            alignItems: "flex-end",
+            marginVertical: scale(4),
+            paddingHorizontal: scale(8),
+        },
+        myWrapper: { justifyContent: "flex-end", },
+        otherWrapper: { justifyContent: "flex-start" },
+        messageBubble: {
+            maxWidth: width * 0.75,
+            minWidth: scale(40),
+            borderRadius: scale(16),
+        },
+        myMessage: { borderTopRightRadius: 4 },
+        otherMessage: { borderTopLeftRadius: 4 },
+        textMessage: { fontSize: scale(15), color: "#222", lineHeight: scale(21), width: "auto" },
 
-    // Location card
-    locationCard: {
-        padding: 12,
-        borderRadius: 16,
-        maxWidth: 260,
-        backgroundColor: "#FFFFFF",
-        shadowColor: "#000",
-        shadowOpacity: 0.08,
-        shadowRadius: 10,
-        shadowOffset: { width: 0, height: 4 },
-        elevation: 3,
-    },
+        // Location card
+        locationCard: {
+            padding: 12,
+            borderRadius: 16,
+            maxWidth: "100%",
+            backgroundColor: "#FFFFFF",
+            shadowColor: "#000",
+            shadowOpacity: 0.08,
+            shadowRadius: 10,
+            shadowOffset: { width: 0, height: 4 },
+            elevation: 3,
+        },
 
-    locationHeader: {
-        flexDirection: "row",
-        alignItems: "center",
-    },
+        locationHeader: {
+            flexDirection: "row",
+            alignItems: "center",
+        },
 
-    locationIconWrap: {
-        width: 36,
-        height: 36,
-        borderRadius: 18,
-        backgroundColor: "#0A84FF",
-        alignItems: "center",
-        justifyContent: "center",
-        marginRight: 10,
-    },
+        locationIconWrap: {
+            width: 36,
+            height: 36,
+            borderRadius: 18,
+            backgroundColor: "#0A84FF",
+            alignItems: "center",
+            justifyContent: "center",
+            marginRight: 10,
+        },
 
-    locationTitle: {
-        fontSize: 15,
-        fontWeight: "600",
-    },
+        locationTitle: {
+            fontSize: 15,
+            fontWeight: "600",
+        },
 
-    locationSubtitle: {
-        fontSize: 12,
-        color: "#8E8E93",
-        marginTop: 2,
-    },
+        locationSubtitle: {
+            fontSize: 12,
+            color: "#8E8E93",
+            marginTop: 2,
+        },
 
-    locationFooter: {
-        alignItems: "center",
-        marginTop: 10,
-        paddingTop: 8,
-        borderTopWidth: 0.5,
-        borderColor: "#E5E5EA",
-    },
+        locationFooter: {
+            alignItems: "center",
+            marginTop: 10,
+            paddingTop: 8,
+            borderTopWidth: 0.5,
+            borderColor: "#E5E5EA",
+        },
 
-    locationLink: {
-        fontSize: 12,
-        color: "#0A84FF",
-        marginLeft: 6,
-        flex: 1,
-    },
+        locationLink: {
+            fontSize: 12,
+            color: "#0A84FF",
+            marginLeft: 6,
+            flex: 1,
+        },
 
-    // Contact card
-    contactCard: {
-        padding: 14,
-        borderRadius: 16,
-        maxWidth: 260,
-        backgroundColor: "#FFFFFF",
-        shadowColor: "#000",
-        shadowOpacity: 0.08,
-        shadowRadius: 10,
-        shadowOffset: { width: 0, height: 4 },
-        elevation: 3,
-    },
+        // Contact card
+        contactCard: {
+            padding: 14,
+            borderRadius: 16,
+            minWidth: "80%",
+            backgroundColor: "#FFFFFF",
+            shadowColor: "#000",
+            shadowOpacity: 0.08,
+            shadowRadius: 10,
+            shadowOffset: { width: 0, height: 4 },
+            elevation: 3,
+        },
 
-    contactHeader: {
-        flexDirection: "row",
-        alignItems: "center",
-    },
+        contactHeader: {
+            flexDirection: "row",
+            alignItems: "center",
+        },
 
-    contactAvatar: {
-        width: 40,
-        height: 40,
-        borderRadius: 20,
-        backgroundColor: "#4CAF50",
-        alignItems: "center",
-        justifyContent: "center",
-    },
+        contactAvatar: {
+            width: 40,
+            height: 40,
+            borderRadius: 20,
+            backgroundColor: "#4CAF50",
+            alignItems: "center",
+            justifyContent: "center",
+        },
 
-    contactInfo: {
-        marginLeft: 10,
-        flex: 1,
-    },
+        contactInfo: {
+            marginLeft: 10,
+            flex: 1,
+        },
 
-    contactName: {
-        fontSize: 15,
-        fontWeight: "600",
-    },
+        contactName: {
+            fontSize: 15,
+            fontWeight: "600",
+        },
 
-    contactNumber: {
-        fontSize: 13,
-        color: "#8E8E93",
-        marginTop: 2,
-    },
+        contactNumber: {
+            fontSize: 13,
+            color: "#8E8E93",
+            marginTop: 2,
+        },
 
-    contactAction: {
-        flexDirection: "row",
-        alignItems: "center",
-        justifyContent: "center",
-        marginTop: 12,
-        paddingVertical: 10,
-        borderTopWidth: 0.5,
-        borderColor: "#E5E5EA",
-    },
+        contactAction: {
+            flexDirection: "row",
+            alignItems: "center",
+            justifyContent: "center",
+            marginTop: 12,
+            paddingVertical: 10,
+            borderTopWidth: 0.5,
+            borderColor: "#E5E5EA",
+        },
 
-    contactActionText: {
-        fontSize: 14,
-        fontWeight: "600",
-        color: "#0A84FF",
-        marginLeft: 6,
-    },
-
-
-    // Poll card
-    pollCard: {
-        padding: 14,
-        borderRadius: 16,
-        width: "100%",
-        backgroundColor: "#FFFFFF",
-        shadowColor: "#000",
-        shadowOpacity: 0.08,
-        shadowRadius: 10,
-        shadowOffset: { width: 0, height: 4 },
-        elevation: 3,
-    },
-
-    pollTitle: {
-        fontSize: 16,
-        fontWeight: "600",
-        marginBottom: 4,
-    },
-
-    pollHint: {
-        fontSize: 12,
-        color: "#8E8E93",
-        marginBottom: 12,
-    },
-
-    pollOption: {
-        marginBottom: 10,
-        borderRadius: 12,
-        overflow: "hidden",
-    },
-
-    pollOptionSelected: {
-        borderWidth: 1,
-        borderColor: "#0A84FF",
-    },
-
-    pollProgressBackground: {
-        ...StyleSheet.absoluteFillObject,
-        backgroundColor: "#F2F2F7",
-    },
-
-    pollProgressFill: {
-        height: "100%",
-        backgroundColor: "rgba(10,132,255,0.15)",
-    },
-
-    pollOptionContent: {
-        flexDirection: "row",
-        alignItems: "center",
-        paddingVertical: 10,
-        paddingHorizontal: 12,
-    },
-
-    pollOptionText: {
-        flex: 1,
-        fontSize: 14,
-        marginLeft: 8,
-    },
-
-    pollPercent: {
-        fontSize: 12,
-        fontWeight: "600",
-        color: "#0A84FF",
-    },
-
-    radioOuter: {
-        height: 20,
-        width: 20,
-        borderRadius: 10,
-        borderWidth: 2,
-        borderColor: "#0A84FF",
-        alignItems: "center",
-        justifyContent: "center",
-    },
-
-    radioInner: {
-        height: 10,
-        width: 10,
-        borderRadius: 5,
-        backgroundColor: "#0A84FF",
-    },
-
-    pollDivider: {
-        height: 1,
-        backgroundColor: "#E5E5EA",
-        marginVertical: 10,
-    },
-
-    pollFooter: {
-        fontSize: 13,
-        color: "#0A84FF",
-        fontWeight: "500",
-        textAlign: "center",
-    },
-
-    // media
-
-    mediaBubble: {
-        maxWidth: 280,
-        borderRadius: 14,
-        overflow: "hidden",
-        backgroundColor: "#000",
-        shadowColor: "#000",
-        shadowOpacity: 0.15,
-        shadowRadius: 8,
-        shadowOffset: { width: 0, height: 4 },
-        elevation: 4,
-    },
-
-    media: {
-        width: "100%",
-        aspectRatio: 1,
-    },
+        contactActionText: {
+            fontSize: 14,
+            fontWeight: "600",
+            color: "#0A84FF",
+            marginLeft: 6,
+        },
 
 
+        // Poll card
+        pollCard: {
+            padding: 14,
+            borderRadius: 16,
+            width: "100%",
+            backgroundColor: "#FFFFFF",
+            shadowColor: "#000",
+            shadowOpacity: 0.08,
+            shadowRadius: 10,
+            shadowOffset: { width: 0, height: 4 },
+            elevation: 3,
+        },
+
+        pollTitle: {
+            fontSize: 16,
+            fontWeight: "600",
+            marginBottom: 4,
+        },
+
+        pollHint: {
+            fontSize: 12,
+            color: "#8E8E93",
+            marginBottom: 12,
+        },
+
+        pollOption: {
+            marginBottom: 10,
+            borderRadius: 12,
+            overflow: "hidden",
+
+        },
+
+        pollOptionSelected: {
+            borderWidth: 1,
+            borderColor: "#0A84FF",
+        },
+
+        pollProgressBackground: {
+            ...StyleSheet.absoluteFillObject,
+            backgroundColor: "#F2F2F7",
+        },
+
+        pollProgressFill: {
+            height: "100%",
+            backgroundColor: "rgba(10,132,255,0.15)",
+        },
+
+        pollOptionContent: {
+            flexDirection: "row",
+            alignItems: "center",
+            paddingVertical: 10,
+            paddingHorizontal: 12,
+        },
+
+        pollOptionText: {
+            flex: 1,
+            fontSize: 14,
+            marginLeft: 8,
+        },
+
+        pollPercent: {
+            fontSize: 12,
+            fontWeight: "600",
+            color: "#0A84FF",
+        },
+
+        radioOuter: {
+            height: 20,
+            width: 20,
+            borderRadius: 10,
+            borderWidth: 2,
+            borderColor: "#0A84FF",
+            alignItems: "center",
+            justifyContent: "center",
+        },
+
+        radioInner: {
+            height: 10,
+            width: 10,
+            borderRadius: 5,
+            backgroundColor: "#0A84FF",
+        },
+
+        pollDivider: {
+            height: 1,
+            backgroundColor: "#E5E5EA",
+            marginVertical: 10,
+        },
+
+        pollFooter: {
+            fontSize: 13,
+            color: "#0A84FF",
+            fontWeight: "500",
+            textAlign: "center",
+        },
+
+        inputContainer: {
+            flexDirection: "row",
+            alignItems: "center",
+            paddingHorizontal: scale(10),
+            paddingVertical: scale(6),
+            backgroundColor: "#F7F8FA",
+        },
+        inputWithIcons: { flex: 1, borderWidth: 1, borderColor: "#E0E0E0", borderRadius: scale(25), paddingLeft: scale(40), paddingRight: scale(110), paddingVertical: Platform.OS === "ios" ? scale(10) : scale(6), fontSize: scale(15), backgroundColor: "#FFFFFF", color: "#1C1C1E", maxHeight: scale(110), minHeight: scale(36), },
+        iconLeft: {
+            position: "absolute",
+            left: scale(14),
+            zIndex: 10,
+        },
+
+        attachIcon: {
+            position: "absolute",
+            right: scale(90),
+            zIndex: 10,
+        },
+        iconRight: {
+            position: "absolute",
+            right: scale(65),
+            zIndex: 10,
+        },
+        sendButton: {
+            padding: scale(12),
+            marginLeft: scale(6),
+            borderRadius: scale(25),
+            justifyContent: "center",
+            alignItems: "center",
+        },
+
+        emojiContainer: { height: Math.min(scale(320), height * 0.45), backgroundColor: "#f2f2f2", borderTopWidth: 1, borderColor: "#ddd", elevation: 10, },
+        emojiGrid: { flexDirection: "row", flexWrap: "wrap", padding: 8, },
+        emojiButton: { width: `${100 / (width > 500 ? 12 : 9)}%`, justifyContent: "center", alignItems: "center", paddingVertical: scale(10), },
+        deleteButton: { position: "absolute", bottom: 10, right: 10, padding: 8, },
+
+        popup: {
+            position: "absolute",
+            bottom: height * 0.12,
+            left: scale(16),
+            right: scale(16),
+            backgroundColor: "#fff",
+            padding: scale(12),
+            borderRadius: scale(10),
+            shadowColor: "#000",
+            shadowOpacity: 0.2,
+            shadowRadius: 6,
+            elevation: 5,
+            flexDirection: "row",
+            alignItems: "center",
+            justifyContent: "space-between",
+        },
+        button: {
+            backgroundColor: "#007bff",
+            padding: 6,
+            borderRadius: 6,
+            marginLeft: 8,
+        },
+
+        onlineDot: {
+            width: 8,
+            height: 8,
+            borderRadius: 4,
+            backgroundColor: "#25D366",
+            marginRight: 6,
+            shadowColor: "#25D366",
+            shadowOffset: { width: 0, height: 0 },
+            shadowOpacity: 0.9,
+            shadowRadius: 6,
+            elevation: 6,
+        },
+
+        onlineText: {
+            fontSize: 12,
+            color: "#25D366",
+            fontWeight: "500",
+        },
+
+        lastSeenText: {
+            fontSize: 12,
+            color: "#8E8E93",
+        },
+
+        blurredOverlay: {
+            ...StyleSheet.absoluteFillObject,
+            backgroundColor: "rgba(0,0,0,0.45)",
+        },
+
+        blurredPreview: {
+            width: width * 0.55,
+            aspectRatio: 1,
+            borderRadius: scale(12),
+            overflow: "hidden",
+            alignItems: "center",
+            justifyContent: "center",
+        },
+        blurredImage: {
+            ...StyleSheet.absoluteFillObject,
+            resizeMode: "cover",
+        },
 
 
-    inputContainer: {
-        flexDirection: "row",
-        alignItems: "center",
-        paddingHorizontal: 8,
-        paddingVertical: 6,
-        backgroundColor: "#F7F8FA",
-    },
-    inputWithIcons: { flex: 1, borderWidth: 1, borderColor: "#E0E0E0", borderRadius: 25, paddingLeft: 40, paddingRight: 110, paddingVertical: Platform.OS === "ios" ? 10 : 6, fontSize: 15, backgroundColor: "#FFFFFF", color: "#1C1C1E", maxHeight: 100, minHeight: 30, },
-    iconLeft: { position: "absolute", left: 12, zIndex: 10 },
-    attachIcon: { position: "absolute", zIndex: 10 },
-    iconRight: { position: "absolute", right: 70, zIndex: 10 },
-    sendButton: { backgroundColor: "#0A84FF", padding: 12, marginLeft: 6, borderRadius: 25, justifyContent: "center", alignItems: "center" },
-
-    emojiContainer: { height: 250, backgroundColor: "#f2f2f2", borderTopWidth: 1, borderColor: "#ddd", elevation: 10, },
-    emojiGrid: { flexDirection: "row", flexWrap: "wrap", padding: 8, },
-    emojiButton: { width: `${100 / 9}%`, justifyContent: "center", alignItems: "center", paddingVertical: 10, },
-    deleteButton: { position: "absolute", bottom: 10, right: 10, padding: 8, },
-
-    popup: {
-        position: "absolute",
-        bottom: 80,
-        left: 16,
-        right: 16,
-        backgroundColor: "#fff",
-        padding: 12,
-        borderRadius: 8,
-        shadowColor: "#000",
-        shadowOpacity: 0.2,
-        shadowRadius: 6,
-        elevation: 5,
-        flexDirection: "row",
-        alignItems: "center",
-        justifyContent: "space-between",
-    },
-    button: {
-        backgroundColor: "#007bff",
-        padding: 6,
-        borderRadius: 6,
-        marginLeft: 8,
-    },
-
-    onlineDot: {
-        width: 8,
-        height: 8,
-        borderRadius: 4,
-        backgroundColor: "#25D366",
-        marginRight: 6,
-        shadowColor: "#25D366",
-        shadowOffset: { width: 0, height: 0 },
-        shadowOpacity: 0.9,
-        shadowRadius: 6,
-        elevation: 6,
-    },
-
-    onlineText: {
-        fontSize: 12,
-        color: "#25D366",
-        fontWeight: "500",
-    },
-
-    lastSeenText: {
-        fontSize: 12,
-        color: "#8E8E93",
-    },
-
-    blurredOverlay: {
-        ...StyleSheet.absoluteFillObject,
-        backgroundColor: "rgba(0,0,0,0.45)",
-    },
-
-    blurredPreview: {
-        width: 220,
-        height: 220,
-        borderRadius: 12,
-        overflow: "hidden",
-        alignItems: "center",
-        justifyContent: "center",
-    },
-
-
-}); 
+    });
+};

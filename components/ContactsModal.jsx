@@ -87,7 +87,7 @@ export default function ContactsModal({
                             placeholder="Search contacts"
                             value={searchQuery}
                             onChangeText={setSearchQuery}
-                            placeholderTextColor="#999"
+                            placeholderTextColor="#A1A1A1"
                             style={styles.searchInput}
                         />
                     </View>
