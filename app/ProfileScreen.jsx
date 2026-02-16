@@ -28,7 +28,7 @@ export default function ProfileScreen() {
 
 
   const navigation = useNavigation();
-  const { user, fetchProfile, token } = useAuth();
+  const { user, fetchProfile, token, logout } = useAuth();
 
   const [name, setName] = useState(user?.name || "");
   const [about, setAbout] = useState(user?.about || "");
@@ -76,6 +76,20 @@ export default function ProfileScreen() {
       Alert.alert("Error", "Failed to update profile");
     }
   };
+
+  const handleLogout = () => {
+    Alert.alert("Logout", "Are you sure you want to logout?", [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Logout",
+        style: "destructive",
+        onPress: () => {
+          logout();
+          navigation.navigate("LoginScreen");
+        },
+      },
+    ]);
+  }
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -128,6 +142,9 @@ export default function ProfileScreen() {
         {/* Save Button */}
         <TouchableOpacity style={styles.saveBtn} onPress={handleSave}>
           <Text style={styles.saveText}>Save</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout}>
+          <Text style={styles.saveText}>Logout</Text>
         </TouchableOpacity>
       </ScrollView>
     </SafeAreaView>
@@ -213,6 +230,20 @@ const createStyles = (width) => {
     saveBtn: {
       marginTop: scale(30),
       backgroundColor: "#0A84FF",
+      paddingVertical: scale(16),
+      borderRadius: scale(14),
+      width: "100%",
+      maxWidth: isTablet ? width * 0.6 : "100%",
+      alignItems: "center",
+      shadowColor: "#000",
+      shadowOpacity: 0.2,
+      shadowRadius: 3,
+      elevation: 3,
+    },
+
+    logoutBtn: {
+      marginTop: scale(30),
+      backgroundColor: "#ff0a0a",
       paddingVertical: scale(16),
       borderRadius: scale(14),
       width: "100%",

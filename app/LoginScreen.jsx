@@ -55,6 +55,7 @@ export default function LoginScreen() {
         contentContainerStyle={styles.container}
         enableOnAndroid={true}
         extraScrollHeight={20}
+        keyboardShouldPersistTaps="handled"
       >
         {/* Logo / Icon */}
         {/* <Ionicons name="person-circle-outline" size={120} color="#ccc" /> */}
