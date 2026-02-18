@@ -3,7 +3,8 @@ import React from "react";
 import { ActivityIndicator, View, Platform } from "react-native";
 
 import { HapticTab } from "@/components/HapticTab";
-import { IconSymbol } from "@/components/ui/IconSymbol";
+import { IconSymbol} from "@/components/ui/IconSymbol";
+import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import TabBarBackground from "@/components/ui/TabBarBackground";
 
 import { useAuth } from "@/context/AuthContext";
@@ -52,10 +53,27 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="explore"
+        name="story"
         options={{
-          title: "Explore",
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="paperplane.fill" color={color} />,
+          title: "Status",
+          tabBarIcon: ({ color, size }) => (
+            <View style={{ position: 'relative' }}>
+              {/* Main Circle */}
+              <Feather name="circle" size={size || 28} color={color} />
+
+              {/* Small Badge */}
+              <MaterialCommunityIcons
+                name="checkbox-blank-circle"
+                size={8}
+                color="#00E5FF"
+                style={{
+                  position: 'absolute',
+                  top: 2,
+                  right: 2,
+                }}
+              />
+            </View>
+          ),
         }}
       />
     </Tabs>
