@@ -15,6 +15,7 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 import { useColorScheme } from "@/hooks/useColorScheme";
 import { AuthProvider, useAuth } from "../context/AuthContext";
 import { ChatProvider } from "../context/ChatContext";
+import { StoryProvider } from "../context/StoryContext";
 import { ChatThemeProvider } from "../context/ChatThemeContext";
 import Splash from "./SplashScreen";
 import { useRouter } from "expo-router";
@@ -146,13 +147,13 @@ export default function RootLayout() {
     SpaceMono: require("../assets/fonts/SpaceMono-Regular.ttf"),
   });
 
- useEffect(() => {
-  if (Platform.OS === "android") {
-    NavigationBar.setPositionAsync("absolute");
-    NavigationBar.setBackgroundColorAsync("transparent");
-    NavigationBar.setButtonStyleAsync("light");
-  }
-}, []);
+  //  useEffect(() => {
+  //   if (Platform.OS === "android") {
+  //     NavigationBar.setPositionAsync("absolute");
+  //     NavigationBar.setBackgroundColorAsync("transparent");
+  //     NavigationBar.setButtonStyleAsync("light");
+  //   }
+  // }, []);
 
 
 
@@ -171,7 +172,9 @@ export default function RootLayout() {
       <AuthProvider>
         <ChatThemeProvider>
           <ChatProvider>
-            <AppNavigator />
+            <StoryProvider>
+              <AppNavigator />
+            </StoryProvider>
           </ChatProvider>
         </ChatThemeProvider>
       </AuthProvider>
