@@ -18,14 +18,6 @@ import {
 
 const ChatContext = createContext();
 
-const getChatKeyFromMessage = (msg) => {
-  return (
-    msg?.chatId ||
-    (typeof msg?.chat === "string" ? msg.chat : msg?.chat?._id) ||
-    null
-  );
-};
-
 
 
 export const ChatProvider = ({ children }) => {
