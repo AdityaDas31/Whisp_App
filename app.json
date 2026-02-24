@@ -72,6 +72,16 @@
       ],
       "expo-font",
       "expo-web-browser",
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "compileSdkVersion": 36,
+            "targetSdkVersion": 36,
+            "minSdkVersion": 24
+          }
+        }
+      ],
       "expo-sqlite",
       [
         "expo-image-picker",
