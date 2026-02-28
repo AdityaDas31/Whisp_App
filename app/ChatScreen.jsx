@@ -37,6 +37,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuth } from "../context/AuthContext";
 import { useChats } from "../context/ChatContext";
 import { useChatTheme } from "../context/ChatThemeContext";
+import { useCall } from "../context/CallContext";
 
 import AttachModal from "../components/AttachModal";
 import ChatMediaBubble from "../components/ChatMediaBubble";
@@ -74,6 +75,7 @@ export default function ChatScreen() {
     const { chatId, name, profileImage, userId, myId } = useLocalSearchParams();
     const { user } = useAuth();
     const { sendMessage, messages, joinChat, userStatus, socket, leaveChat, fetchChats, loadLocalMessages } = useChats();
+    const { startCall } = useCall();
 
     const [text, setText] = useState("");
     const [profileVisible, setProfileVisible] = useState(false);
@@ -972,7 +974,7 @@ export default function ChatScreen() {
                     </TouchableOpacity>
 
                     <View style={styles.headerIcons}>
-                        <TouchableOpacity style={styles.iconButton}>
+                        <TouchableOpacity style={styles.iconButton} onPress={() => startCall(userId)}>
                             <Ionicons name="call-outline" size={22} color="#0A84FF" />
                         </TouchableOpacity>
                         <TouchableOpacity style={styles.iconButton}>

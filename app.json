@@ -9,13 +9,17 @@
       "icon": "./assets/images/notification-icon.png",
       "color": "#FF9500"
     },
-    "scheme": ["whisp"],
+    "scheme": [
+      "whisp"
+    ],
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
       "infoPlist": {
-        "UIBackgroundModes": ["remote-notification"]
+        "UIBackgroundModes": [
+          "remote-notification"
+        ]
       },
       "icon": {
         "dark": "./assets/icons/ios-dark.png",
@@ -98,7 +102,8 @@
           "isAccessMediaLocationEnabled": true,
           "audioPermission": "Allow Whisp to access audio files"
         }
-      ]
+      ],
+      "expo-audio"
     ],
     "experiments": {
       "typedRoutes": true

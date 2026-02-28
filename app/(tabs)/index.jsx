@@ -13,7 +13,9 @@ import {
   Text,
   TouchableOpacity,
   View,
-  useWindowDimensions
+  useWindowDimensions,
+  PermissionsAndroid,
+  Platform,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuth } from "../../context/AuthContext";
@@ -22,6 +24,8 @@ import { API_BASE_URL } from "../../config";
 import { StatusBar } from "expo-status-bar";
 import { useRouter } from "expo-router";
 
+import { mediaDevices } from "react-native-webrtc";
+
 
 
 export default function HomeScreen() {
@@ -29,7 +33,7 @@ export default function HomeScreen() {
   const guidelineBaseWidth = 375;
 
   const scale = (size) => (width / guidelineBaseWidth) * size;
-  
+
   const [loading, setLoading] = useState(false);
   const [matchedContacts, setMatchedContacts] = useState([]);
   const [contactModalVisible, setContactModalVisible] = useState(false);
@@ -43,6 +47,46 @@ export default function HomeScreen() {
   const navigation = useNavigation();
 
   const router = useRouter();
+
+  async function requestMicPermission() {
+    if (Platform.OS === "android") {
+      const granted = await PermissionsAndroid.request(
+        PermissionsAndroid.PERMISSIONS.RECORD_AUDIO,
+        {
+          title: "Microphone Permission",
+          message: "App needs microphone access for voice calls",
+          buttonPositive: "Allow",
+        }
+      );
+
+      return granted === PermissionsAndroid.RESULTS.GRANTED;
+    }
+    return true;
+  }
+
+  useEffect(() => {
+    const init = async () => {
+      const hasPermission = await requestMicPermission();
+
+      if (!hasPermission) {
+        console.log("Mic permission denied");
+        return;
+      }
+
+      try {
+        const stream = await mediaDevices.getUserMedia({
+          audio: true,
+          video: false,
+        });
+
+        console.log("✅ WebRTC working");
+      } catch (err) {
+        console.error("WebRTC error:", err);
+      }
+    };
+
+    init();
+  }, []);
 
   useEffect(() => {
     getContactsAndSync();

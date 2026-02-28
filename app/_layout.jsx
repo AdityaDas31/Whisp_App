@@ -17,6 +17,7 @@ import { AuthProvider, useAuth } from "../context/AuthContext";
 import { ChatProvider } from "../context/ChatContext";
 import { StoryProvider } from "../context/StoryContext";
 import { ChatThemeProvider } from "../context/ChatThemeContext";
+import { CallProvider } from "../context/CallContext";
 import Splash from "./SplashScreen";
 import { useRouter } from "expo-router";
 import * as NavigationBar from "expo-navigation-bar";
@@ -115,6 +116,7 @@ function AppNavigator() {
     <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
       <Stack>
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+        <Stack.Screen name="call" options={{ headerShown: false }} />
         <Stack.Screen name="LoginScreen" options={{ headerShown: false }} />
         <Stack.Screen name="GetStart" options={{ headerShown: false }} />
         <Stack.Screen name="RegisterScreen" options={{ headerShown: false }} />
@@ -172,9 +174,11 @@ export default function RootLayout() {
       <AuthProvider>
         <ChatThemeProvider>
           <ChatProvider>
-            <StoryProvider>
-              <AppNavigator />
-            </StoryProvider>
+            <CallProvider>
+              <StoryProvider>
+                <AppNavigator />
+              </StoryProvider>
+            </CallProvider>
           </ChatProvider>
         </ChatThemeProvider>
       </AuthProvider>
