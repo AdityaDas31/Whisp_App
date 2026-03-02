@@ -10,6 +10,17 @@ import InCallManager from "react-native-incall-manager";
 const ICE_SERVERS = {
     iceServers: [
         { urls: "stun:stun.l.google.com:19302" },
+
+        {
+            urls: "turn:openrelay.metered.ca:80",
+            username: "openrelayproject",
+            credential: "openrelayproject",
+        },
+        {
+            urls: "turn:openrelay.metered.ca:443",
+            username: "openrelayproject",
+            credential: "openrelayproject",
+        },
     ],
 };
 
@@ -18,6 +29,8 @@ class WebRTCService {
     localStream = null;
     remoteStream = null;
 
+    pendingCandidates = [];
+
     onIceCandidate = null;
     onRemoteStream = null;
     onConnectionStateChange = null;
@@ -25,13 +38,12 @@ class WebRTCService {
     // ================= INIT =================
     async init() {
         try {
+            this.pendingCandidates = [];
             if (this.pc) {
                 this.pc.close();
                 this.pc = null;
             }
             // Start audio session
-            InCallManager.start({ media: "audio" });
-            InCallManager.setSpeakerphoneOn(false);
 
             // Create peer connection
             this.pc = new RTCPeerConnection(ICE_SERVERS);
@@ -43,22 +55,97 @@ class WebRTCService {
                 }
             };
 
-            // Handle remote stream
-            this.pc.ontrack = (event) => {
-                if (event.streams && event.streams[0]) {
-                    this.remoteStream = event.streams[0];
+            this.pc.oniceconnectionstatechange = (event) => {
 
-                    if (this.onRemoteStream) {
-                        this.onRemoteStream(this.remoteStream);
+                const pc = event.currentTarget;
+
+                if (!pc) return;
+
+                console.log("ICE state:", pc.iceConnectionState);
+
+            };
+
+            this.pc.onsignalingstatechange = (event) => {
+
+                const pc = event.currentTarget;
+
+                if (!pc) return;
+
+                console.log("Signaling state:", pc.signalingState);
+
+            };
+
+            // Handle remote stream
+            // this.pc.ontrack = (event) => {
+            //     if (event.streams && event.streams[0]) {
+            //         console.log("REMOTE TRACK RECEIVED");
+            //         this.remoteStream = event.streams[0];
+
+            //         if (this.onRemoteStream) {
+            //             this.onRemoteStream(this.remoteStream);
+            //         }
+            //     }
+            // };
+
+            this.pc.ontrack = (event) => {
+
+                if (!event.streams || !event.streams[0]) return;
+
+                console.log("REMOTE TRACK RECEIVED");
+
+                this.remoteStream = event.streams[0];
+
+                const audioTracks = this.remoteStream.getAudioTracks();
+
+                audioTracks.forEach(track => {
+
+                    track.enabled = true;
+
+                    console.log("Track readyState:", track.readyState);
+
+                });
+
+                // THIS IS THE REAL FIX — trigger Android audio renderer
+                setTimeout(() => {
+
+                    if (this.remoteStream) {
+
+                        const tracks = this.remoteStream.getAudioTracks();
+
+                        tracks.forEach(track => {
+                            track.enabled = false;
+                            track.enabled = true;
+                        });
+
+                        console.log("Audio sink attached");
+
                     }
-                }
+
+                }, 500);
+
             };
 
             // Connection state
-            this.pc.onconnectionstatechange = () => {
-                if (this.onConnectionStateChange) {
-                    this.onConnectionStateChange(this.pc.connectionState);
+            this.pc.onconnectionstatechange = (event) => {
+
+                try {
+
+                    const pc = event.currentTarget;
+
+                    if (!pc) return;
+
+                    const state = pc.connectionState;
+
+                    console.log("WebRTC state:", state);
+
+                    if (this.onConnectionStateChange) {
+                        this.onConnectionStateChange(state);
+                    }
+
+                } catch (e) {
+                    console.log("connectionState error:", e);
                 }
+
             };
 
             // Get microphone stream
@@ -69,10 +156,28 @@ class WebRTCService {
 
             // Add tracks
             this.localStream.getTracks().forEach((track) => {
+
+                track.enabled = true;
+
                 this.pc.addTrack(track, this.localStream);
+
+            });
+
+            // CRITICAL: force audio output activation
+            this.pc.getReceivers().forEach(receiver => {
+
+                if (receiver.track && receiver.track.kind === "audio") {
+
+                    console.log("Receiver audio track found");
+
+                    receiver.track.enabled = true;
+
+                }
+
             });
 
             return this.localStream;
+
 
         } catch (error) {
             console.error("WebRTC init error:", error);
@@ -98,44 +203,96 @@ class WebRTCService {
 
     // ================= CREATE ANSWER =================
     async createAnswer(offer) {
+
         try {
+
             await this.pc.setRemoteDescription(
                 new RTCSessionDescription(offer)
             );
+
+            // apply queued ICE candidates
+            for (const candidate of this.pendingCandidates) {
+
+                await this.pc.addIceCandidate(
+                    new RTCIceCandidate(candidate)
+                );
+
+            }
+
+            this.pendingCandidates = [];
 
             const answer = await this.pc.createAnswer();
 
             await this.pc.setLocalDescription(answer);
 
             return answer;
+
         } catch (error) {
+
             console.error("createAnswer error:", error);
+
             throw error;
+
         }
+
     }
 
     // ================= SET REMOTE ANSWER =================
     async setRemoteAnswer(answer) {
+
         try {
+
             await this.pc.setRemoteDescription(
                 new RTCSessionDescription(answer)
             );
+
+            // apply queued ICE candidates
+            for (const candidate of this.pendingCandidates) {
+
+                await this.pc.addIceCandidate(
+                    new RTCIceCandidate(candidate)
+                );
+
+            }
+
+            this.pendingCandidates = [];
+
         } catch (error) {
+
             console.error("setRemoteAnswer error:", error);
+
         }
+
     }
 
     // ================= ADD ICE CANDIDATE =================
     async addIceCandidate(candidate) {
+
         try {
+
             if (!candidate) return;
+
+            if (!this.pc) return;
+
+            if (!this.pc.remoteDescription) {
+
+                // queue candidates
+                this.pendingCandidates.push(candidate);
+
+                return;
+
+            }
 
             await this.pc.addIceCandidate(
                 new RTCIceCandidate(candidate)
             );
+
         } catch (error) {
-            console.error("addIceCandidate error:", error);
+
+            console.log("ICE add error:", error);
+
         }
+
     }
 
     // ================= GET STREAMS =================
@@ -161,8 +318,69 @@ class WebRTCService {
         InCallManager.setSpeakerphoneOn(on);
     }
 
+    // ================= AUDIO LEVEL MONITOR =================
+
+    audioLevelInterval = null;
+
+    startAudioLevelMonitor(callback) {
+
+    if (!this.pc) return;
+
+    this.audioLevelInterval = setInterval(async () => {
+
+        try {
+
+            const stats = await this.pc.getStats();
+
+            stats.forEach(report => {
+
+                // ✅ THIS IS THE CORRECT REPORT TYPE
+                if (
+                    report.type === "media-source" &&
+                    report.kind === "audio"
+                ) {
+
+                    const level = report.audioLevel || 0;
+
+                    callback(level);
+
+                }
+
+                // fallback for some devices
+                if (
+                    report.type === "track" &&
+                    report.kind === "audio"
+                ) {
+
+                    const level = report.audioLevel || 0;
+
+                    callback(level);
+
+                }
+
+            });
+
+        } catch (e) {}
+
+    }, 100);
+
+}
+
+    stopAudioLevelMonitor() {
+
+        if (this.audioLevelInterval) {
+
+            clearInterval(this.audioLevelInterval);
+
+            this.audioLevelInterval = null;
+
+        }
+
+    }
+
     // ================= END CALL =================
     close() {
+        this.stopAudioLevelMonitor();
         try {
             if (this.localStream) {
                 this.localStream.getTracks().forEach(track => track.stop());
@@ -174,8 +392,17 @@ class WebRTCService {
                 this.remoteStream = null;
             }
 
+
             if (this.pc) {
+
+                this.pc.onicecandidate = null;
+                this.pc.ontrack = null;
+                this.pc.onconnectionstatechange = null;
+                this.pc.oniceconnectionstatechange = null;
+                this.pc.onsignalingstatechange = null;
+
                 this.pc.close();
+
                 this.pc = null;
             }
 
@@ -185,6 +412,8 @@ class WebRTCService {
             console.error("WebRTC close error:", error);
         }
     }
+
+
 }
 
 export default new WebRTCService();

@@ -12,6 +12,42 @@ import { useCall } from "../context/CallContext";
 import webrtcService from "../services/webrtcService";
 import InCallManager from "react-native-incall-manager";
 
+const AudioWave = ({ level }) => {
+
+  const bars = 5;
+
+  return (
+    <View style={{
+      flexDirection: "row",
+      alignItems: "flex-end",
+      height: 60,
+      marginBottom: 40
+    }}>
+
+      {[...Array(bars)].map((_, i) => {
+
+        const height = Math.max(6, level * 120 * Math.random());
+
+        return (
+          <View
+            key={i}
+            style={{
+              width: 6,
+              height,
+              backgroundColor: "#2ecc71",
+              marginHorizontal: 3,
+              borderRadius: 3,
+            }}
+          />
+        );
+
+      })}
+
+    </View>
+  );
+
+};
+
 export default function CallScreen() {
 
   const {
@@ -25,6 +61,7 @@ export default function CallScreen() {
 
   const [isMuted, setIsMuted] = useState(false);
   const [isSpeakerOn, setIsSpeakerOn] = useState(false);
+  const [micLevel, setMicLevel] = useState(0);
 
   // ================= MUTE =================
   const toggleMute = () => {
@@ -46,6 +83,28 @@ export default function CallScreen() {
       InCallManager.stop();
     };
   }, []);
+
+  useEffect(() => {
+
+    if (callState === "connected") {
+
+      webrtcService.startAudioLevelMonitor((level) => {
+
+        setMicLevel(level);
+
+        console.log("Mic level:", level);
+
+      });
+
+    }
+
+    return () => {
+
+      webrtcService.stopAudioLevelMonitor();
+
+    };
+
+  }, [callState]);
 
   // ================= UI =================
 
@@ -117,6 +176,8 @@ export default function CallScreen() {
         <>
           <Text style={styles.title}>Connected</Text>
           <Text style={styles.subtitle}>{remoteUserId}</Text>
+
+          <AudioWave level={micLevel} />
 
           <View style={styles.buttonRow}>
 
