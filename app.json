@@ -9,17 +9,13 @@
       "icon": "./assets/images/notification-icon.png",
       "color": "#FF9500"
     },
-    "scheme": [
-      "whisp"
-    ],
+    "scheme": ["whisp"],
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
       "infoPlist": {
-        "UIBackgroundModes": [
-          "remote-notification"
-        ]
+        "UIBackgroundModes": ["remote-notification"]
       },
       "icon": {
         "dark": "./assets/icons/ios-dark.png",
@@ -45,7 +41,10 @@
         "android.permission.WRITE_EXTERNAL_STORAGE",
         "android.permission.READ_MEDIA_VISUAL_USER_SELECTED",
         "android.permission.ACCESS_MEDIA_LOCATION",
-        "android.permission.READ_MEDIA_AUDIO"
+        "android.permission.READ_MEDIA_AUDIO",
+        "VIBRATE",
+        "POST_NOTIFICATIONS",
+        "MODIFY_AUDIO_SETTINGS"
       ],
       "package": "com.lonewolf2024.Whisp",
       "googleServicesFile": "./google-services.json"
