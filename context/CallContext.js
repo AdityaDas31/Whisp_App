@@ -5,6 +5,7 @@ import React, {
     useRef,
     useState,
 } from "react";
+
 import { Vibration } from "react-native";
 import uuid from "react-native-uuid";
 import { useChats } from "./ChatContext";
@@ -20,232 +21,145 @@ export const CallProvider = ({ children }) => {
     const { socket } = useChats();
 
     const callIdRef = useRef(null);
+    const isRingtonePlaying = useRef(false);
 
-    // ✅ CORRECT: useAudioPlayer at TOP LEVEL
-    // const ringtonePlayer = useAudioPlayer(
-    //     require("../assets/sounds/ringtone.mp3")
-    // );
-
+    // Ringback (caller side only)
     const ringbackPlayer = useAudioPlayer(
         require("../assets/sounds/ringback.mp3")
     );
-
-    const ringtoneVibrationPattern = [0, 1000, 1000];
-
-    // ================= STATE =================
 
     const [callState, setCallState] = useState("idle");
     const [incomingCall, setIncomingCall] = useState(null);
     const [remoteUserId, setRemoteUserId] = useState(null);
 
-    // ================= INIT AUDIO PLAYERS =================
+    // ================= INIT =================
 
     useEffect(() => {
-
-        // ringtonePlayer.loop = true;
         ringbackPlayer.loop = true;
-
         return () => {
-
-            // ringtonePlayer.pause();
             ringbackPlayer.pause();
-
         };
-
     }, []);
 
-    // ================= CALLER RINGBACK =================
+    // ================= RINGBACK (CALLER) =================
 
     const playRingback = () => {
-
         try {
+            console.log("▶️ Ringback START");
 
-            // START call audio mode FIRST
-            InCallManager.start({
-                media: "audio",
-                auto: true,
-            });
-
-            // FORCE EARPIECE
+            InCallManager.start({ media: "audio", auto: true });
             InCallManager.setForceSpeakerphoneOn(false);
             InCallManager.setSpeakerphoneOn(false);
 
             ringbackPlayer.seekTo(0);
             ringbackPlayer.play();
 
-            console.log("Ringback playing via earpiece");
-
         } catch (e) {
-
             console.log("Ringback error:", e);
-
         }
-
     };
 
     const stopRingback = () => {
-
-        try {
-
-            ringbackPlayer.pause();
-            ringbackPlayer.seekTo(0);
-
-        } catch { }
-
+        console.log("⏹ Ringback STOP");
+        ringbackPlayer.pause();
+        ringbackPlayer.seekTo(0);
     };
 
-    // ================= RECEIVER RINGTONE =================
-
+    // ================= RINGTONE (RECEIVER) =================
 
     const playRingtone = () => {
-
         try {
 
-            console.log("DEBUG: starting TRUE ringtone channel");
+            console.log("🔔 STARTING PURE RINGTONE MODE");
 
-            // stop all audio modes first
-            InCallManager.stop();
+            // DO NOT CALL InCallManager.stop()
+            // DO NOT CALL InCallManager.start()
 
-            // start ringtone channel
-            InCallManager.startRingtone("ringtone");
+            // InCallManager.startRingtone("ringtone");
+            InCallManager.startRingtone("_DEFAULT_");
 
-            // vibration loop
             Vibration.vibrate([0, 1000, 1000], true);
 
         } catch (e) {
-
             console.log("Ringtone error:", e);
-
         }
-
     };
+
     const stopRingtone = () => {
+        console.log("🔕 STOP RINGTONE");
 
-        try {
-
-            console.log("DEBUG: stopping TRUE ringtone");
-
-            InCallManager.stopRingtone();
-
-            Vibration.cancel();
-
-        } catch { }
-
+        InCallManager.stopRingtone();
+        Vibration.cancel();
     };
 
-    // ================= START AUDIO SESSION =================
+    // ================= AUDIO SESSION =================
 
     const startAudioSession = () => {
-
         try {
+            console.log("🎧 Call Audio START");
 
-            console.log("Starting audio session");
-
-            InCallManager.start({
-                media: "audio",
-                auto: true,
-            });
-
-            // ✅ EARPIECE MODE (NOT SPEAKER)
+            InCallManager.start({ media: "audio", auto: true });
             InCallManager.setForceSpeakerphoneOn(false);
-
             InCallManager.setSpeakerphoneOn(false);
-
             InCallManager.setMicrophoneMute(false);
 
         } catch (e) {
-
             console.log("Audio session error:", e);
-
         }
-
     };
 
-    // ================= STOP AUDIO SESSION =================
-
     const stopAudioSession = () => {
-
-        try {
-
-            InCallManager.stop();
-
-        } catch { }
-
+        console.log("🎧 Call Audio STOP");
+        InCallManager.stop();
     };
 
     // ================= START CALL =================
 
     const startCall = async (userId) => {
 
-        try {
+        if (!socket) return;
 
-            if (!socket) return;
+        const callId = uuid.v4();
+        callIdRef.current = callId;
 
-            const callId = uuid.v4();
+        setRemoteUserId(userId);
+        setCallState("calling");
 
-            callIdRef.current = callId;
+        playRingback();
 
-            setRemoteUserId(userId);
+        socket.emit("call:initiate", {
+            to: userId,
+            callId,
+            type: "voice",
+        });
 
-            setCallState("calling");
-
-            playRingback();
-
-            socket.emit("call:initiate", {
-
-                to: userId,
-                callId,
-                type: "voice",
-
-            });
-
-            router.push("/call");
-
-        } catch (error) {
-
-            console.error(error);
-
-        }
-
+        router.push("/call");
     };
 
     // ================= ACCEPT CALL =================
 
     const acceptCall = async () => {
 
-        try {
+        if (!incomingCall) return;
 
-            if (!incomingCall) return;
+        const { callId, from } = incomingCall;
 
-            const { callId, from } = incomingCall;
+        callIdRef.current = callId;
+        setRemoteUserId(from);
 
-            callIdRef.current = callId;
+        stopRingtone();
+        InCallManager.start({ media: "audio" });
 
-            setRemoteUserId(from);
+        await webrtcService.init();
+        startAudioSession();
 
-            stopRingtone();
+        socket.emit("call:accept", {
+            callId,
+            to: from,
+        });
 
-            await webrtcService.init();
-
-            startAudioSession();
-
-            socket.emit("call:accept", {
-
-                callId,
-                to: from,
-
-            });
-
-            setIncomingCall(null);
-
-            setCallState("connecting");
-
-        } catch (error) {
-
-            console.error("acceptCall error:", error);
-
-        }
-
+        setIncomingCall(null);
+        setCallState("connecting");
     };
 
     // ================= REJECT CALL =================
@@ -255,59 +169,37 @@ export const CallProvider = ({ children }) => {
         if (!incomingCall) return;
 
         socket.emit("call:reject", {
-
             callId: incomingCall.callId,
             to: incomingCall.from,
-
         });
 
         stopRingtone();
         stopRingback();
-        Vibration.cancel();
 
         setIncomingCall(null);
-
         setCallState("idle");
-
     };
 
     // ================= END CALL =================
 
     const endCall = () => {
 
-        try {
-
-            if (remoteUserId) {
-
-                socket.emit("call:end", {
-
-                    callId: callIdRef.current,
-                    to: remoteUserId,
-
-                });
-
-            }
-
-            stopRingback();
-            stopRingtone();
-            Vibration.cancel();
-
-            stopAudioSession();
-
-            webrtcService.close();
-
-            setCallState("idle");
-
-            setRemoteUserId(null);
-
-            setIncomingCall(null);
-
-        } catch (error) {
-
-            console.error("endCall error:", error);
-
+        if (remoteUserId) {
+            socket.emit("call:end", {
+                callId: callIdRef.current,
+                to: remoteUserId,
+            });
         }
 
+        stopRingtone();
+        stopRingback();
+        stopAudioSession();
+
+        webrtcService.close();
+
+        setCallState("idle");
+        setRemoteUserId(null);
+        setIncomingCall(null);
     };
 
     // ================= SOCKET EVENTS =================
@@ -316,154 +208,83 @@ export const CallProvider = ({ children }) => {
 
         if (!socket) return;
 
-        // INCOMING CALL
         socket.on("call:incoming", ({ callId, from }) => {
 
+            console.log("📲 Incoming call");
+
             callIdRef.current = callId;
-
             setIncomingCall({ callId, from });
-
             setRemoteUserId(from);
-
             setCallState("incoming");
 
             playRingtone();
-
             router.push("/call");
-
         });
 
-        // CALL ACCEPTED (CALLER SIDE)
         socket.on("call:accepted", async () => {
 
-            try {
-
-                stopRingback();
-
-                startAudioSession();
-
-                await webrtcService.init();
-
-                const offer = await webrtcService.createOffer();
-
-                socket.emit("webrtc:offer", {
-
-                    to: remoteUserId,
-                    offer,
-
-                });
-
-                setCallState("connecting");
-
-            } catch (e) {
-
-                console.log(e);
-
-            }
-
-        });
-
-        // CALL REJECTED
-        socket.on("call:rejected", () => {
+            console.log("✅ Call accepted");
 
             stopRingback();
-            stopRingtone();
+            startAudioSession();
 
-            stopAudioSession();
+            await webrtcService.init();
+            const offer = await webrtcService.createOffer();
 
-            webrtcService.close();
-
-            setCallState("idle");
-
-        });
-
-        // CALL ENDED
-        socket.on("call:ended", () => {
-
-            stopRingback();
-            stopRingtone();
-
-            stopAudioSession();
-
-            webrtcService.close();
-
-            setCallState("idle");
-
-        });
-
-        // OFFER RECEIVED
-        socket.on("webrtc:offer", async ({ from, offer }) => {
-
-            try {
-
-                setRemoteUserId(from);
-
-                const answer = await webrtcService.createAnswer(offer);
-
-                socket.emit("webrtc:answer", {
-
-                    to: from,
-                    answer,
-
-                });
-
-            } catch (error) {
-
-                console.error("Offer error:", error);
-
-            }
-
-        });
-
-        // ANSWER RECEIVED
-        socket.on("webrtc:answer", async ({ answer }) => {
-
-            await webrtcService.setRemoteAnswer(answer);
-
-            setCallState("connected");
-
-        });
-
-        // ICE
-        socket.on("webrtc:ice-candidate", async ({ candidate }) => {
-
-            await webrtcService.addIceCandidate(candidate);
-
-        });
-
-        // SEND ICE
-        webrtcService.onIceCandidate = (candidate) => {
-
-            socket.emit("webrtc:ice-candidate", {
-
+            socket.emit("webrtc:offer", {
                 to: remoteUserId,
-                candidate,
-
+                offer,
             });
 
+            setCallState("connecting");
+        });
+
+        socket.on("call:rejected", () => {
+            console.log("❌ Call rejected");
+            endCall();
+        });
+
+        socket.on("call:ended", () => {
+            console.log("🔚 Call ended");
+            endCall();
+        });
+
+        socket.on("webrtc:offer", async ({ from, offer }) => {
+            setRemoteUserId(from);
+            const answer = await webrtcService.createAnswer(offer);
+            socket.emit("webrtc:answer", { to: from, answer });
+        });
+
+        socket.on("webrtc:answer", async ({ answer }) => {
+            await webrtcService.setRemoteAnswer(answer);
+            setCallState("connected");
+        });
+
+        socket.on("webrtc:ice-candidate", async ({ candidate }) => {
+            await webrtcService.addIceCandidate(candidate);
+        });
+
+        webrtcService.onIceCandidate = (candidate) => {
+            socket.emit("webrtc:ice-candidate", {
+                to: remoteUserId,
+                candidate,
+            });
         };
 
-        // CONNECTION STATE
         webrtcService.onConnectionStateChange = (state) => {
 
-            console.log("Connection:", state);
+            console.log("🔌 Connection:", state);
 
             if (state === "connected") {
-
                 setCallState("connected");
-
             }
 
             if (state === "failed" || state === "disconnected") {
-
                 endCall();
-
             }
-
         };
 
         return () => {
-
             socket.off("call:incoming");
             socket.off("call:accepted");
             socket.off("call:rejected");
@@ -471,15 +292,11 @@ export const CallProvider = ({ children }) => {
             socket.off("webrtc:offer");
             socket.off("webrtc:answer");
             socket.off("webrtc:ice-candidate");
-
         };
 
     }, [socket, remoteUserId]);
 
-    // ================= PROVIDER =================
-
     return (
-
         <CallContext.Provider
             value={{
                 callState,
@@ -491,13 +308,9 @@ export const CallProvider = ({ children }) => {
                 endCall,
             }}
         >
-
             {children}
-
         </CallContext.Provider>
-
     );
-
 };
 
 export const useCall = () => useContext(CallContext);

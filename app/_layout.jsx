@@ -51,6 +51,19 @@ function AppNavigator() {
   }, []);
 
 
+  useEffect(() => {
+    const requestPermission = async () => {
+
+      if (Platform.OS === "android") {
+        const settings = await Notifications.requestPermissionsAsync();
+        console.log("Notification permission:", settings);
+      }
+
+    };
+
+    requestPermission();
+  }, []);
+
   // 🚀 Navigate when auth is ready
   // 2️⃣ Mark app as ready AFTER first render
   useEffect(() => {
