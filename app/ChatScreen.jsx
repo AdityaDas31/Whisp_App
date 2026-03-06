@@ -974,7 +974,8 @@ export default function ChatScreen() {
                     </TouchableOpacity>
 
                     <View style={styles.headerIcons}>
-                        <TouchableOpacity style={styles.iconButton} onPress={() => startCall(userId)}>
+
+                        <TouchableOpacity style={styles.iconButton} onPress={() => startCall(userId, name, profileImage, user._id, user.name, user.profileImage)}>
                             <Ionicons name="call-outline" size={22} color="#0A84FF" />
                         </TouchableOpacity>
                         <TouchableOpacity style={styles.iconButton}>
