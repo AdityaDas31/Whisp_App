@@ -6,15 +6,17 @@ import {
     StyleSheet,
     Image,
     TouchableOpacity,
-    RefreshControl
+    RefreshControl,
+    Alert
 } from "react-native";
 
 import { Feather } from "@expo/vector-icons";
-import { getCallHistory } from "../../services/callService";
+import { getCallHistory, deleteCallLog } from "../../services/callService";
 import { useCall } from "../../context/CallContext";
 import { useAuth } from "../../context/AuthContext";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useIsFocused } from "@react-navigation/native";
+
 
 export default function CallsScreen() {
 
@@ -39,10 +41,10 @@ export default function CallsScreen() {
     };
 
     useEffect(() => {
-    if (isFocused) {
-        loadCalls();
-    }
-}, [isFocused]);
+        if (isFocused) {
+            loadCalls();
+        }
+    }, [isFocused]);
 
     const formatDuration = (seconds) => {
 
@@ -52,6 +54,37 @@ export default function CallsScreen() {
         const secs = seconds % 60;
 
         return `${mins}m ${secs}s`;
+    };
+
+    const handleDelete = (callId) => {
+
+        Alert.alert(
+            "Delete Call Log",
+            "Are you sure you want to delete this call log?",
+            [
+                {
+                    text: "Cancel",
+                    style: "cancel",
+                },
+                {
+                    text: "Delete",
+                    style: "destructive",
+                    onPress: async () => {
+                        try {
+
+                            await deleteCallLog(callId);
+
+                            setCalls((prev) =>
+                                prev.filter((c) => c.callId !== callId)
+                            );
+
+                        } catch (err) {
+                            console.log("Delete call log error:", err);
+                        }
+                    }
+                }
+            ]
+        );
     };
 
     const renderItem = ({ item }) => {
@@ -76,6 +109,15 @@ export default function CallsScreen() {
                 ? "red"
                 : "#4CAF50";
 
+        const renderRightActions = () => (
+            <TouchableOpacity
+                style={styles.deleteButton}
+                onPress={() => handleDelete(item.callId)}
+            >
+                <Feather name="trash-2" size={20} color="#fff" />
+            </TouchableOpacity>
+        );
+
         return (
             <TouchableOpacity
                 style={styles.item}
@@ -89,6 +131,7 @@ export default function CallsScreen() {
                         user.profileImage
                     )
                 }
+                onLongPress={() => handleDelete(item.callId)}
             >
                 <Image
                     source={{
@@ -111,25 +154,26 @@ export default function CallsScreen() {
 
                 <Feather name="phone" size={20} color="#555" />
             </TouchableOpacity>
+
         );
     };
 
     return (
-            <SafeAreaView style={styles.container}>
+        <SafeAreaView style={styles.container}>
 
-                <FlatList
-                    data={calls}
-                    keyExtractor={(item) => item.callId}
-                    renderItem={renderItem}
-                    refreshControl={
-                        <RefreshControl
-                            refreshing={loading}
-                            onRefresh={loadCalls}
-                        />
-                    }
-                />
+            <FlatList
+                data={calls}
+                keyExtractor={(item) => item.callId}
+                renderItem={renderItem}
+                refreshControl={
+                    <RefreshControl
+                        refreshing={loading}
+                        onRefresh={loadCalls}
+                    />
+                }
+            />
 
-            </SafeAreaView>
+        </SafeAreaView>
     );
 }
 
