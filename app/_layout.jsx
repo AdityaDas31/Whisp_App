@@ -1,4 +1,3 @@
-import * as SplashScreen from "expo-splash-screen";
 import {
   DarkTheme,
   DefaultTheme,
@@ -18,13 +17,10 @@ import { ChatProvider } from "../context/ChatContext";
 import { StoryProvider } from "../context/StoryContext";
 import { ChatThemeProvider } from "../context/ChatThemeContext";
 import { CallProvider } from "../context/CallContext";
-import Splash from "./SplashScreen";
 import { useRouter } from "expo-router";
 import * as NavigationBar from "expo-navigation-bar";
 import { Platform } from "react-native";
 
-
-SplashScreen.preventAutoHideAsync();
 
 /* ------------------ INNER APP (HAS ACCESS TO AUTH) ------------------ */
 function AppNavigator() {
@@ -144,7 +140,6 @@ function AppNavigator() {
           name="ChatScreenThemeScreen"
           options={{ headerShown: false }}
         />
-        <Stack.Screen name="SplashScreen" options={{ headerShown: false }} />
         <Stack.Screen name="+not-found" />
       </Stack>
 
@@ -156,30 +151,14 @@ function AppNavigator() {
 
 /* ------------------ ROOT LAYOUT ------------------ */
 export default function RootLayout() {
-  const [showSplash, setShowSplash] = useState(true);
+
 
   const [loaded] = useFonts({
     SpaceMono: require("../assets/fonts/SpaceMono-Regular.ttf"),
   });
 
-  //  useEffect(() => {
-  //   if (Platform.OS === "android") {
-  //     NavigationBar.setPositionAsync("absolute");
-  //     NavigationBar.setBackgroundColorAsync("transparent");
-  //     NavigationBar.setButtonStyleAsync("light");
-  //   }
-  // }, []);
-
-
-
-  useEffect(() => {
-    if (!showSplash && loaded) {
-      SplashScreen.hideAsync();
-    }
-  }, [showSplash, loaded]);
-
-  if (showSplash || !loaded) {
-    return <Splash onFinish={() => setShowSplash(false)} />;
+  if (!loaded) {
+    return null;
   }
 
   return (

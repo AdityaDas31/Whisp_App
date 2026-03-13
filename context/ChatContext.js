@@ -495,7 +495,7 @@ export const ChatProvider = ({ children }) => {
     setChats(merged);
   };
 
-  const safeLoadChatsFromLocalDB = () => {
+  const safeLoadChatsFromLocalDB = async  () => {
     clearTimeout(loadChatsTimer);
 
     loadChatsTimer = setTimeout(() => {

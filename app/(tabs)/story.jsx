@@ -11,7 +11,7 @@ import {
   Dimensions,
   Animated,
   Alert,
-  Easing 
+  Easing
 } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -22,6 +22,7 @@ import { useStory } from "../../context/StoryContext";
 import { useAuth } from "../../context/AuthContext";
 import Svg, { Path } from "react-native-svg";
 import { useFocusEffect } from "@react-navigation/native";
+import AppStatusBar from "../../components/AppStatusBar";
 
 const { width, height } = Dimensions.get("window");
 
@@ -656,7 +657,8 @@ export default function story() {
 
   return (
     <>
-      <SafeAreaView style={{ flex: 1 }}>
+      <SafeAreaView style={{ flex: 1, backgroundColor: "#F7F8FA"  }}>
+        <AppStatusBar backgroundColor="#fff" style="dark" />
         <View style={styles.container}>
           {/* My Status */}
           <TouchableOpacity style={styles.statusItem} onPress={handleMyStatusPress}>

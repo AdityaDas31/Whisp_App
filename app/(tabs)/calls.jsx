@@ -9,6 +9,7 @@ import {
     RefreshControl,
     Alert
 } from "react-native";
+import AppStatusBar from "../../components/AppStatusBar";
 
 import { Feather } from "@expo/vector-icons";
 import { getCallHistory, deleteCallLog } from "../../services/callService";
@@ -160,7 +161,7 @@ export default function CallsScreen() {
 
     return (
         <SafeAreaView style={styles.container}>
-
+            <AppStatusBar backgroundColor="#fff" style="dark" />
             <FlatList
                 data={calls}
                 keyExtractor={(item) => item.callId}

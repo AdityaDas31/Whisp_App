@@ -21,20 +21,20 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuth } from "../../context/AuthContext";
 import { useChats } from "../../context/ChatContext";
 import { API_BASE_URL } from "../../config";
-import { StatusBar } from "expo-status-bar";
 import { useRouter } from "expo-router";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import AppStatusBar from "../../components/AppStatusBar";
 
 import { mediaDevices } from "react-native-webrtc";
 
 
 
+
 export default function HomeScreen() {
   const { width, height } = useWindowDimensions();
-  const guidelineBaseWidth = 375;
 
-  const scale = (size) => (width / guidelineBaseWidth) * size;
-
-  const [loading, setLoading] = useState(false);
+  const [contactLoading, setContactLoading] = useState(false);
+  const [chatLoading, setChatLoading] = useState(true);
   const [matchedContacts, setMatchedContacts] = useState([]);
   const [contactModalVisible, setContactModalVisible] = useState(false);
 
@@ -88,13 +88,15 @@ export default function HomeScreen() {
     init();
   }, []);
 
-  useEffect(() => {
-    getContactsAndSync();
-  }, []);
+  // useEffect(() => {
+  //   getContactsAndSync();
+  // }, []);
 
   useEffect(() => {
-    if (chats.length === 0) {
-      safeLoadChatsFromLocalDB();
+    if (dbReady) {
+      safeLoadChatsFromLocalDB().finally(() => {
+        setChatLoading(false);
+      });
     }
   }, [dbReady]);
 
@@ -103,11 +105,12 @@ export default function HomeScreen() {
 
   const getContactsAndSync = async () => {
     try {
-      setLoading(true);
+      setContactLoading(true);
+
       const { status } = await Contacts.requestPermissionsAsync();
+
       if (status !== "granted") {
         Alert.alert("Permission Denied", "We need contacts permission to sync.");
-        setLoading(false);
         return;
       }
 
@@ -115,47 +118,69 @@ export default function HomeScreen() {
         fields: [Contacts.Fields.PhoneNumbers],
       });
 
-      if (data.length > 0) {
-        const phoneContacts = data
-          .filter((c) => c.phoneNumbers && c.phoneNumbers.length > 0)
-          .map((c) => ({
-            name: c.name,
-            numbers: c.phoneNumbers.map((p) => normalizeNumber(p.number)),
-          }));
+      if (!data?.length) return;
 
-        const numbersToSend = phoneContacts.flatMap((c) => c.numbers);
+      const phoneContacts = data
+        .filter((c) => c.phoneNumbers?.length > 0)
+        .map((c) => ({
+          name: c.name,
+          numbers: c.phoneNumbers.map((p) => normalizeNumber(p.number)),
+        }));
 
-        const res = await axios.post(
-          `${API_BASE_URL}/user/sync`,
-          { contacts: numbersToSend },
-          { headers: { Authorization: `Bearer ${token}` } }
+      // const numbersToSend = phoneContacts.flatMap((c) => c.numbers);
+      const numbersToSend = [
+        ...new Set(phoneContacts.flatMap((c) => c.numbers)),
+      ];
+
+      const res = await axios.post(
+        `${API_BASE_URL}/user/sync`,
+        { contacts: numbersToSend },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      const matchedUsers = res.data?.matchedUsers || [];
+
+      const mergedContacts = matchedUsers.map((user) => {
+        const phoneContact = phoneContacts.find((c) =>
+          c.numbers.some(
+            (num) =>
+              num === String(user.phoneNumber) ||
+              num === `${user.countryCode}${user.phoneNumber}`
+          )
         );
 
-        const matchedUsers = res.data.matchedUsers;
+        return {
+          ...user,
+          contactName: phoneContact ? phoneContact.name : user.name,
+        };
+      });
 
-        const mergedContacts = matchedUsers.map((user) => {
-          const phoneContact = phoneContacts.find((c) =>
-            c.numbers.some(
-              (num) =>
-                num === String(user.phoneNumber) ||
-                num === `${user.countryCode}${user.phoneNumber}`
-            )
-          );
-          return {
-            ...user,
-            contactName: phoneContact ? phoneContact.name : user.name,
-          };
-        });
-
-        setMatchedContacts(mergedContacts);
-      }
+      setMatchedContacts(mergedContacts);
+      await AsyncStorage.setItem(
+        "matchedContacts",
+        JSON.stringify(mergedContacts)
+      );
     } catch (err) {
       console.error(err);
-      Alert.alert("Error", err.message || "Something went wrong");
     } finally {
-      setLoading(false);
+      setContactLoading(false);
     }
   };
+  const loadCachedContacts = async () => {
+    try {
+      const cached = await AsyncStorage.getItem("matchedContacts");
+
+      if (cached) {
+        setMatchedContacts(JSON.parse(cached));
+      }
+    } catch (e) {
+      console.log("Cache load error", e);
+    }
+  };
+
+  useEffect(() => {
+    loadCachedContacts();
+  }, []);
 
   const getPreviewText = (message) => {
     if (!message) return null;
@@ -267,7 +292,7 @@ export default function HomeScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea} edges={["top"]}>
-      <StatusBar backgroundColor="black" barStyle="light-content" />
+      <AppStatusBar backgroundColor="#fff" style="dark" />
       {/* Header */}
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Whisp</Text>
@@ -282,7 +307,7 @@ export default function HomeScreen() {
 
       {/* Body */}
       <View style={styles.body}>
-        {loading ? (
+        {chatLoading ? (
           <ActivityIndicator size="large" color="#0A84FF" />
         ) : chats.length > 0 ? (
           <FlatList
@@ -386,7 +411,13 @@ export default function HomeScreen() {
       {/* FAB */}
       <TouchableOpacity
         style={styles.fab}
-        onPress={() => setContactModalVisible(true)}
+        onPress={() => {
+          setContactModalVisible(true);
+
+          if (matchedContacts.length === 0) {
+            getContactsAndSync();
+          }
+        }}
       >
         <Ionicons name="chatbubble-ellipses" size={28} color="#fff" />
       </TouchableOpacity>
@@ -405,39 +436,44 @@ export default function HomeScreen() {
             </TouchableOpacity>
           </View>
 
-          <FlatList
-            data={matchedContacts}
-            keyExtractor={(item) => item._id}
-            renderItem={({ item }) => (
-              <TouchableOpacity
-                style={styles.contactCard}
-                onPress={async () => {
-                  const chat = await openChat(item._id);
-                  setContactModalVisible(false); // close modal
-                  safeLoadChatsFromLocalDB()
-                  navigation.navigate("ChatScreen", {
-                    chatId: chat._id,
-                    name: item.contactName,
-                    profileImage: item.profileImage?.url,
-                  });
-                }}
-              >
-                <Image
-                  source={{ uri: item.profileImage?.url }}
-                  style={styles.avatar}
-                />
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.contactName}>{item.contactName}</Text>
-                  <Text style={styles.contactPhone}>
-                    +{item.countryCode} {item.phoneNumber}
-                  </Text>
-                </View>
-              </TouchableOpacity>
-            )}
-            ListEmptyComponent={
-              <Text style={styles.empty}>No contacts found on app.</Text>
-            }
-          />
+          {contactLoading ? (
+            <ActivityIndicator size="large" color="#0A84FF" />
+          ) : (
+            <FlatList
+              data={matchedContacts}
+              keyExtractor={(item) => item._id}
+              renderItem={({ item }) => (
+                <TouchableOpacity
+                  style={styles.contactCard}
+                  onPress={async () => {
+                    const chat = await openChat(item._id);
+                    setContactModalVisible(false); // close modal
+                    safeLoadChatsFromLocalDB()
+                    navigation.navigate("ChatScreen", {
+                      chatId: chat._id,
+                      name: item.contactName,
+                      profileImage: item.profileImage?.url,
+                    });
+                  }}
+                >
+                  <Image
+                    source={{ uri: item.profileImage?.url }}
+                    style={styles.avatar}
+                  />
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.contactName}>{item.contactName}</Text>
+                    <Text style={styles.contactPhone}>
+                      +{item.countryCode} {item.phoneNumber}
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+              )}
+              ListEmptyComponent={
+                <Text style={styles.empty}>No contacts found on app.</Text>
+              }
+            />
+          )}
+
         </SafeAreaView>
       </Modal>
 
