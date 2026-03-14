@@ -41,3 +41,37 @@ app-example
 android/*.apk
 android/app/build/
 android/build/
+
+# dependencies
+node_modules
+
+# git
+.git
+.gitignore
+
+# expo
+.expo
+.expo-shared
+
+# build folders
+android
+ios
+
+# logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# system
+.DS_Store
+Thumbs.db
+
+# caches
+.cache
+dist
+build
+
+# editor
+.vscode
+.idea
