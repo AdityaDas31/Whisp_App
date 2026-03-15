@@ -4,7 +4,7 @@
     "slug": "frontend",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/icons/splash-logo.png",
+    "icon": "./assets/icons/icon.png",
     "notification": {
       "icon": "./assets/images/notification-icon.png",
       "color": "#FF9500"
@@ -60,7 +60,7 @@
         "expo-splash-screen",
         {
           "image": "./assets/icons/splash-logo.png",
-          "imageWidth": 200,
+          "imageWidth": 150,
           "resizeMode": "contain",
           "backgroundColor": "#ffffff"
         }
