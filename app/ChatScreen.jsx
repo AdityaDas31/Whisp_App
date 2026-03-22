@@ -9,7 +9,7 @@ import * as Location from "expo-location";
 import * as MediaLibrary from "expo-media-library";
 import { useLocalSearchParams } from "expo-router";
 import { useVideoPlayer } from "expo-video";
-
+import Avatar from "../components/Avatar";
 import { Entypo, Ionicons } from "@expo/vector-icons";
 import {
     ActivityIndicator,
@@ -72,7 +72,8 @@ const attachmentOptions = [
 
 
 export default function ChatScreen() {
-    const { chatId, name, profileImage, userId, myId } = useLocalSearchParams();
+    const { chatId, name, profileImage, userId, myId, isGroup, users, adminId } = useLocalSearchParams();
+    const groupUsers = users ? JSON.parse(users) : [];
     const { user } = useAuth();
     const { sendMessage, messages, joinChat, userStatus, socket, leaveChat, fetchChats, loadLocalMessages } = useChats();
     const { startCall } = useCall();
@@ -229,9 +230,24 @@ export default function ChatScreen() {
 
     const renderItem = ({ item }) => {
         // console.log("media", item.media);
-
         const senderId = typeof item.sender === "object" ? item.sender._id : item.sender;
         const isMine = senderId === user._id;
+        let senderName = null;
+
+        if (isGroup) {
+
+            const senderId =
+                typeof item.sender === "object"
+                    ? item.sender._id
+                    : item.sender;
+
+            const senderUser = groupUsers.find(
+                u => u._id === senderId
+            );
+
+            senderName = senderUser?.name;
+
+        }
         const isMedia = item.type === "media" && (item.media?.format === "image" || item.media?.format === "video");
         const isRichContent =
             item.type === "media" ||
@@ -451,6 +467,7 @@ export default function ChatScreen() {
                     isMine ? styles.myWrapper : styles.otherWrapper,
                 ]}
             >
+
                 <Pressable
                     onLongPress={() => {
                         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -497,6 +514,12 @@ export default function ChatScreen() {
                         },
                     ]}
                 >
+                    {/* show sender name for group */}
+                    {isGroup && !isMine && senderName && (
+                        <Text style={styles.senderName}>
+                            {senderName}
+                        </Text>
+                    )}
 
                     {renderMessageContent(item, isMine)}
                     {!isMedia && (
@@ -933,8 +956,23 @@ export default function ChatScreen() {
                 /* ✅ Normal Chat Header */
                 <View style={[styles.header, { backgroundColor: theme.backgroundColor }]}>
                     <TouchableOpacity style={styles.headerLeft} onPress={() => setProfileVisible(true)}>
-                        <Image
+                        {/* <Image
                             source={{ uri: profileImage }}
+                            style={[
+                                styles.headerImage,
+                                {
+                                    width: avatarSize,
+                                    height: avatarSize,
+                                    borderRadius: avatarSize / 2,
+                                    marginRight: isTablet ? 16 : 12,
+                                },
+                            ]}
+                        /> */}
+
+                        <Avatar
+                            uri={profileImage}
+                            name={name}
+                            size={avatarSize}
                             style={[
                                 styles.headerImage,
                                 {
@@ -978,7 +1016,21 @@ export default function ChatScreen() {
                         <TouchableOpacity style={styles.iconButton} onPress={() => startCall(userId, name, profileImage, user._id, user.name, user.profileImage)}>
                             <Ionicons name="call-outline" size={22} color="#0A84FF" />
                         </TouchableOpacity>
-                        <TouchableOpacity style={styles.iconButton}>
+
+                        <TouchableOpacity
+                            style={styles.iconButton}
+                            onPress={() =>
+                                startCall(
+                                    userId,
+                                    name,
+                                    profileImage,
+                                    user._id,
+                                    user.name,
+                                    user.profileImage,
+                                    "video"
+                                )
+                            }
+                        >
                             <Ionicons name="videocam-outline" size={24} color="#0A84FF" />
                         </TouchableOpacity>
                     </View>
@@ -1102,7 +1154,16 @@ export default function ChatScreen() {
             <ProfileModal
                 visible={profileVisible}
                 onClose={() => setProfileVisible(false)}
-                profileData={{ name: name, profileImage: profileImage }}
+
+                profileData={{
+                    chatId,
+                    name,
+                    profileImage,
+                    isGroup,
+                    users: groupUsers,
+                    adminId
+
+                }}
             />
 
             {/* Attachments Modal */}
@@ -1556,6 +1617,17 @@ const createStyles = (width, height) => {
         blurredImage: {
             ...StyleSheet.absoluteFillObject,
             resizeMode: "cover",
+        },
+        senderName: {
+
+            fontSize: 12,
+
+            color: "#666",
+
+            marginBottom: 2,
+
+            marginLeft: 4
+
         },
 
 

@@ -36,7 +36,7 @@ class WebRTCService {
     onConnectionStateChange = null;
 
     // ================= INIT =================
-    async init() {
+    async init(isVideo = false) {
         try {
             this.pendingCandidates = [];
             if (this.pc) {
@@ -97,6 +97,10 @@ class WebRTCService {
 
                 const audioTracks = this.remoteStream.getAudioTracks();
 
+                if (this.onRemoteStream) {
+                    this.onRemoteStream(this.remoteStream);
+                }
+
                 audioTracks.forEach(track => {
 
                     track.enabled = true;
@@ -151,7 +155,14 @@ class WebRTCService {
             // Get microphone stream
             this.localStream = await mediaDevices.getUserMedia({
                 audio: true,
-                video: false,
+                video: isVideo
+                    ? {
+                        facingMode: "user", // front camera
+                        width: 640,
+                        height: 480,
+                        frameRate: 30,
+                    }
+                    : false,
             });
 
             // Add tracks
@@ -190,6 +201,7 @@ class WebRTCService {
         try {
             const offer = await this.pc.createOffer({
                 offerToReceiveAudio: true,
+                offerToReceiveVideo: true, // ✅ ADD
             });
 
             await this.pc.setLocalDescription(offer);
@@ -324,47 +336,47 @@ class WebRTCService {
 
     startAudioLevelMonitor(callback) {
 
-    if (!this.pc) return;
+        if (!this.pc) return;
 
-    this.audioLevelInterval = setInterval(async () => {
+        this.audioLevelInterval = setInterval(async () => {
 
-        try {
+            try {
 
-            const stats = await this.pc.getStats();
+                const stats = await this.pc.getStats();
 
-            stats.forEach(report => {
+                stats.forEach(report => {
 
-                // ✅ THIS IS THE CORRECT REPORT TYPE
-                if (
-                    report.type === "media-source" &&
-                    report.kind === "audio"
-                ) {
+                    // ✅ THIS IS THE CORRECT REPORT TYPE
+                    if (
+                        report.type === "media-source" &&
+                        report.kind === "audio"
+                    ) {
 
-                    const level = report.audioLevel || 0;
+                        const level = report.audioLevel || 0;
 
-                    callback(level);
+                        callback(level);
 
-                }
+                    }
 
-                // fallback for some devices
-                if (
-                    report.type === "track" &&
-                    report.kind === "audio"
-                ) {
+                    // fallback for some devices
+                    if (
+                        report.type === "track" &&
+                        report.kind === "audio"
+                    ) {
 
-                    const level = report.audioLevel || 0;
+                        const level = report.audioLevel || 0;
 
-                    callback(level);
+                        callback(level);
 
-                }
+                    }
 
-            });
+                });
 
-        } catch (e) {}
+            } catch (e) { }
 
-    }, 100);
+        }, 100);
 
-}
+    }
 
     stopAudioLevelMonitor() {
 

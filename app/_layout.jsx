@@ -140,6 +140,7 @@ function AppNavigator() {
           name="ChatScreenThemeScreen"
           options={{ headerShown: false }}
         />
+        <Stack.Screen name="CreateGroupScreen" options={{ headerShown: false }} />
         <Stack.Screen name="+not-found" />
       </Stack>
 

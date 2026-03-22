@@ -14,6 +14,7 @@ import { router } from "expo-router";
 import { useCall } from "../context/CallContext";
 import webrtcService from "../services/webrtcService";
 import InCallManager from "react-native-incall-manager";
+import { RTCView } from "react-native-webrtc";
 
 const AudioWave = ({ level }) => {
 
@@ -47,18 +48,31 @@ export default function CallScreen() {
     rejectCall,
     endCall,
     remoteUser,
+    callType
   } = useCall();
 
   const [isMuted, setIsMuted] = useState(false);
   const [isSpeakerOn, setIsSpeakerOn] = useState(false);
   const [micLevel, setMicLevel] = useState(0);
   const [callTime, setCallTime] = useState(0);
+  const [localStream, setLocalStream] = useState(null);
+  const [remoteStream, setRemoteStream] = useState(null);
 
   // DEMO USER DATA
   const user = {
     name: remoteUser?.name || "Unknown",
     avatar: remoteUser?.profileImage?.url || remoteUser?.profileImage
   };
+
+
+  useEffect(() => {
+    const local = webrtcService.getLocalStream();
+    if (local) setLocalStream(local);
+
+    webrtcService.onRemoteStream = (stream) => {
+      setRemoteStream(stream);
+    };
+  }, []);
 
 
   if (remoteUser) {
@@ -146,6 +160,14 @@ export default function CallScreen() {
     }
 
   }, [callState]);
+
+  useEffect(() => {
+    webrtcService.onRemoteStream = (stream) => {
+      setRemoteStream(stream);
+    };
+  }, []);
+
+  const isVideoCall = callType === "video";
 
   const renderContent = () => {
 
@@ -267,12 +289,28 @@ export default function CallScreen() {
 
       {callState !== "idle" && (
         <>
-          <Image
-            source={{ uri: user.avatar }}
-            style={styles.avatar}
-          />
+          {isVideoCall ? (
+            <>
+              {remoteStream && (
+                <RTCView
+                  streamURL={remoteStream.toURL()}
+                  style={styles.remoteVideo}
+                />
+              )}
 
-          <Text style={styles.name}>{user.name}</Text>
+              {localStream && (
+                <RTCView
+                  streamURL={localStream.toURL()}
+                  style={styles.localVideo}
+                />
+              )}
+            </>
+          ) : (
+            <>
+              <Image source={{ uri: user.avatar }} style={styles.avatar} />
+              <Text style={styles.name}>{user.name}</Text>
+            </>
+          )}
         </>
       )}
 
@@ -360,5 +398,18 @@ const styles = StyleSheet.create({
   reject: {
     backgroundColor: "#e74c3c",
   },
+  remoteVideo: {
+    position: "absolute",
+    width: "100%",
+    height: "100%",
+  },
 
+  localVideo: {
+    position: "absolute",
+    width: 120,
+    height: 160,
+    top: 50,
+    right: 20,
+    zIndex: 2,
+  },
 });

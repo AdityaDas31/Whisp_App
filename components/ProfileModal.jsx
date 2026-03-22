@@ -8,13 +8,118 @@ import {
     Platform,
     StatusBar,
     ScrollView,
+    Alert
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useState } from "react";
+import Avatar from "./Avatar";
+import { useRouter } from "expo-router";
+import { useChats } from "../context/ChatContext";
+import { useAuth } from "../context/AuthContext";
+import axios from "axios";
+import { API_BASE_URL } from "../config";
 
 export default function ProfileModal({ visible, onClose, profileData }) {
     const [tab, setTab] = useState("profile");
+
+    const router = useRouter();
+
+    const { openChat } = useChats();
+
+    const { user, token } = useAuth();
+
+    const openMemberChat = async (member) => {
+
+        // don't open chat with yourself
+        if (member._id === user._id) {
+
+            return;
+
+        }
+
+        try {
+
+            const chat = await openChat(member._id);
+
+            router.replace({
+
+                pathname: "/ChatScreen",
+
+                params: {
+
+                    chatId: chat._id,
+
+                    userId: member._id,
+
+                    myId: user._id,
+
+                    name: member.name,
+
+                    profileImage: member.profileImage?.url
+
+                }
+
+            });
+
+        } catch (err) {
+
+            console.log("open member chat error", err);
+
+        }
+
+    };
+
+    const deleteGroup = () => {
+
+        Alert.alert(
+
+            "Delete group?",
+            "All messages will be deleted permanently",
+
+            [
+                { text: "Cancel" },
+
+                {
+                    text: "Delete",
+                    style: "destructive",
+                    onPress: confirmDelete
+                }
+            ]
+
+        );
+
+    };
+
+    const confirmDelete = async () => {
+
+        try {
+
+            console.log("Deleting group:", profileData.chatId);
+
+            await axios.delete(
+
+                `${API_BASE_URL}/chat/group/${profileData.chatId}`,
+
+                {
+                    headers: {
+                        Authorization: `Bearer ${token}`
+                    }
+                }
+
+            );
+
+            onClose();
+
+            router.replace("/");
+
+        } catch (err) {
+
+            console.log("DELETE ERROR:", err.response?.data || err.message);
+
+        }
+
+    };
 
     return (
         <Modal visible={visible} animationType="fade">
@@ -34,8 +139,14 @@ export default function ProfileModal({ visible, onClose, profileData }) {
                 {/* HERO */}
                 <View style={styles.hero}>
                     <View style={styles.avatarWrap}>
-                        <Image
+                        {/* <Image
                             source={{ uri: profileData?.profileImage }}
+                            style={styles.avatar}
+                        /> */}
+                        <Avatar
+                            uri={profileData?.profileImage}
+                            name={profileData?.name}
+                            size={120}
                             style={styles.avatar}
                         />
                         <View style={styles.onlineDot} />
@@ -82,7 +193,7 @@ export default function ProfileModal({ visible, onClose, profileData }) {
                         <>
                             <Text style={styles.sectionTitle}>About</Text>
                             <Text style={styles.bio}>
-                                Available on Whisp ✨  
+                                Available on Whisp ✨
                                 Let’s talk code, design, and ideas.
                             </Text>
 
@@ -101,7 +212,89 @@ export default function ProfileModal({ visible, onClose, profileData }) {
                                 icon="time-outline"
                                 label="Disappearing Messages"
                             />
+                            {profileData?.isGroup && (
+
+                                <>
+
+                                    <Text style={styles.sectionTitle}>
+
+                                        Members
+
+                                    </Text>
+
+
+                                    {[...profileData.users]
+
+                                        .sort((a, b) => {
+
+                                            const aIsAdmin =
+                                                String(profileData.adminId) === String(a._id);
+
+                                            const bIsAdmin =
+                                                String(profileData.adminId) === String(b._id);
+
+                                            if (aIsAdmin) return -1;
+
+                                            if (bIsAdmin) return 1;
+
+                                            return 0;
+
+                                        })
+
+                                        .map(user => (
+
+                                            <TouchableOpacity
+                                                key={user._id}
+                                                style={styles.memberRow}
+                                                onPress={() => openMemberChat(user)}
+                                            >
+
+                                                <Avatar
+
+                                                    uri={user.profileImage?.url}
+
+                                                    name={user.name}
+
+                                                    size={44}
+
+                                                />
+
+
+                                                <View
+                                                    style={{ flex: 1, marginLeft: 12 }}
+                                                >
+
+                                                    <Text style={styles.memberName}>
+
+                                                        {user.name}
+
+                                                    </Text>
+
+                                                </View>
+
+
+                                                {String(profileData.adminId) === String(user._id) && (
+
+                                                    <Text style={styles.adminBadge}>
+
+                                                        ADMIN
+
+                                                    </Text>
+
+                                                )}
+
+                                            </TouchableOpacity>
+
+                                        ))}
+
+
+                                    <View style={styles.divider} />
+
+                                </>
+
+                            )}
                         </>
+
                     )}
 
                     {tab === "media" && (
@@ -122,6 +315,16 @@ export default function ProfileModal({ visible, onClose, profileData }) {
                                 label="Block User"
                                 danger
                             />
+                            {profileData?.isGroup && String(profileData.adminId) === String(user._id) && (
+
+                                <ActionRow
+                                    icon="trash-outline"
+                                    label="Delete Group"
+                                    danger
+                                    onPress={deleteGroup}
+                                />
+
+                            )}
                         </>
                     )}
                 </ScrollView>
@@ -130,9 +333,9 @@ export default function ProfileModal({ visible, onClose, profileData }) {
     );
 }
 
-function ActionRow({ icon, label, danger }) {
+function ActionRow({ icon, label, danger, onPress }) {
     return (
-        <TouchableOpacity style={styles.actionRow}>
+        <TouchableOpacity style={styles.actionRow} onPress={onPress} activeOpacity={0.7}>
             <Ionicons
                 name={icon}
                 size={22}
@@ -173,7 +376,6 @@ const styles = StyleSheet.create({
         width: 120,
         height: 120,
         borderRadius: 60,
-        backgroundColor: "#222",
     },
 
     onlineDot: {
@@ -269,4 +471,23 @@ const styles = StyleSheet.create({
         marginTop: 40,
         color: "rgba(255,255,255,0.5)",
     },
+    memberRow: {
+        flexDirection: "row",
+        alignItems: "center",
+        paddingVertical: 10
+    },
+    memberName: {
+        color: "#fff",
+        fontSize: 15,
+        fontWeight: "500"
+    },
+    adminBadge: {
+        fontSize: 11,
+        color: "#0A84FF",
+        fontWeight: "700",
+        backgroundColor: "rgba(10,132,255,0.15)",
+        paddingHorizontal: 6,
+        paddingVertical: 2,
+        borderRadius: 6
+    }
 });

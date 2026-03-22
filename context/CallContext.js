@@ -21,6 +21,7 @@ export const CallProvider = ({ children }) => {
     const { socket } = useChats();
 
     const [remoteUser, setRemoteUser] = useState(null);
+    const [callType, setCallType] = useState("voice");
 
     const callIdRef = useRef(null);
     const isRingtonePlaying = useRef(false);
@@ -151,7 +152,8 @@ export const CallProvider = ({ children }) => {
         receiverImage,
         callerId,
         callerName,
-        callerImage
+        callerImage,
+        type = "voice"
     ) => {
 
         if (!socket) return;
@@ -171,6 +173,8 @@ export const CallProvider = ({ children }) => {
 
         setRemoteUserId(receiverId);
 
+        setCallType(type);
+
         // Caller screen should show RECEIVER
         setRemoteUser({
             name: receiverName,
@@ -184,8 +188,7 @@ export const CallProvider = ({ children }) => {
         socket.emit("call:initiate", {
             to: receiverId,
             callId,
-            type: "voice",
-
+            type,
             callerId,
             callerName,
             callerImage
@@ -208,7 +211,7 @@ export const CallProvider = ({ children }) => {
         stopRingtone();
         InCallManager.start({ media: "audio" });
 
-        await webrtcService.init();
+        await webrtcService.init(callType === "video");
         startAudioSession();
 
         socket.emit("call:accept", {
@@ -274,7 +277,7 @@ export const CallProvider = ({ children }) => {
 
         if (!socket) return;
 
-        socket.on("call:incoming", ({ callId, from, name, profileImage }) => {
+        socket.on("call:incoming", ({ callId, from, name, profileImage, type }) => {
 
             console.log("📲 RECEIVER GOT CALL");
 
@@ -283,12 +286,14 @@ export const CallProvider = ({ children }) => {
             console.log("Caller Image:", profileImage);
 
             callIdRef.current = callId;
+            setCallType(type);
 
             setIncomingCall({
                 callId,
                 from,
                 name,
-                profileImage
+                profileImage,
+                type
             });
 
             setRemoteUserId(from);
@@ -312,7 +317,7 @@ export const CallProvider = ({ children }) => {
             stopRingback();
             startAudioSession();
 
-            await webrtcService.init();
+            await webrtcService.init(callType === "video");
             const offer = await webrtcService.createOffer();
 
             socket.emit("webrtc:offer", {
@@ -387,6 +392,7 @@ export const CallProvider = ({ children }) => {
                 incomingCall,
                 remoteUserId,
                 remoteUser,
+                callType,
                 startCall,
                 acceptCall,
                 rejectCall,

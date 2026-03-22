@@ -59,10 +59,10 @@
       [
         "expo-splash-screen",
         {
-          "image": "./assets/icons/splash-logo.png",
-          "imageWidth": 150,
+          "image": "./assets/icons/splash-logo2.png",
+          "imageWidth": 200,
           "resizeMode": "contain",
-          "backgroundColor": "#ffffff"
+          "backgroundColor": "#0d0d0d"
         }
       ],
       "expo-video",

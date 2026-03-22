@@ -24,6 +24,7 @@ import { API_BASE_URL } from "../../config";
 import { useRouter } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import AppStatusBar from "../../components/AppStatusBar";
+import Avatar from "../../components/Avatar";
 
 import { mediaDevices } from "react-native-webrtc";
 
@@ -314,93 +315,184 @@ export default function HomeScreen() {
             data={chats}
             keyExtractor={(item) => item._id}
             renderItem={({ item }) => {
-              const otherUser = item.users.find((u) => u._id !== user._id);
+
               const myId = user._id;
+
+              const otherUser = item.isGroupChat
+                ? null
+                : item.users.find(u => u._id !== myId);
+
+              const displayName = item.isGroupChat
+                ? item.chatName
+                : otherUser?.name;
+
+              const displayImage = item.isGroupChat
+
+                ? item.groupImage?.url
+
+                : otherUser?.profileImage?.url;
+
+
+              const openChatHandler = async () => {
+
+                try {
+
+                  // GROUP CHAT
+                  if (item.isGroupChat) {
+                    router.push({
+
+                      pathname: "/ChatScreen",
+
+                      params: {
+                        chatId: item._id,
+                        myId,
+                        name: item.chatName,
+                        isGroup: true,
+                        users: JSON.stringify(item.users),
+                        profileImage: item.groupImage?.url || null,
+                        adminId: item.groupAdmin?._id
+
+                      }
+
+                    });
+
+                    return;
+                  }
+
+
+                  // 1 TO 1 CHAT
+                  const chat = await openChat(otherUser._id);
+
+                  if (!chat?._id) {
+
+                    Alert.alert("Error", "Chat could not be opened");
+                    return;
+
+                  }
+
+                  router.push({
+
+                    pathname: "/ChatScreen",
+
+                    params: {
+                      chatId: chat._id,
+                      myId,
+                      userId: otherUser._id,
+                      name: otherUser.name,
+                      profileImage: otherUser.profileImage?.url
+                    }
+
+                  });
+
+                } catch (err) {
+
+                  console.log(err);
+
+                }
+
+              };
+
+
               return (
+
                 <TouchableOpacity
                   style={styles.chatCard}
-                  onPress={async () => {
-                    const chat = await openChat(otherUser._id);
-                    if (!chat?._id) {
-                      Alert.alert("Error", "Chat could not be opened");
-                      return;
-                    }
-                    router.push({
-                      pathname: "/ChatScreen",
-                      params: {
-                        chatId: chat._id,
-                        myId,
-                        userId: otherUser._id,
-                        name: item.isGroupChat ? item.chatName : otherUser.name,
-                        profileImage: item.isGroupChat
-                          ? item.groupImage?.url
-                          : otherUser.profileImage?.url,
-                      },
-                    });
-                  }}
+                  onPress={openChatHandler}
                 >
-                  {/* Profile */}
+
+                  {/* Avatar */}
                   <TouchableOpacity
                     onPress={() => {
+
                       setSelectedProfile({
-                        name: item.isGroupChat ? item.chatName : otherUser?.name,
-                        profileImage: item.isGroupChat
-                          ? item.groupImage?.url
-                          : otherUser?.profileImage?.url,
+
+                        name: displayName,
+
+                        profileImage: displayImage
+
                       });
+
                       setProfileModalVisible(true);
+
                     }}
                   >
-                    <Image
-                      source={{
-                        uri: item.isGroupChat
-                          ? item.groupImage?.url
-                          : otherUser?.profileImage?.url,
-                      }}
+
+                    {/* <Image
+                      source={{ uri: displayImage }}
+                      name={displayName}
+                      size={44}
+                      style={styles.avatar}
+                    /> */}
+                    <Avatar
+                      uri={displayImage}
+                      name={displayName}
+                      size={44}
                       style={styles.avatar}
                     />
                   </TouchableOpacity>
 
+
                   {/* Chat Info */}
                   <View style={styles.chatInfo}>
+
                     <View style={styles.chatHeader}>
+
                       <Text style={styles.chatName}>
-                        {item.isGroupChat ? item.chatName : otherUser?.name}
+                        {displayName}
                       </Text>
+
                       <Text style={styles.chatTime}>
-                        {item.latestMessage?.createdAt && (
-                          <Text style={styles.chatTime}>
-                            {formatChatTime(item.latestMessage.createdAt)}
-                          </Text>
-                        )}
+
+                        {item.latestMessage?.createdAt &&
+                          formatChatTime(item.latestMessage.createdAt)
+                        }
+
                       </Text>
+
                     </View>
 
+
                     <View style={{ flexDirection: "row", alignItems: "center" }}>
+
                       {renderStatusTick(item.latestMessage)}
 
                       <Text
                         numberOfLines={1}
                         style={[
                           styles.chatMessage,
-                          item.unreadCount > 0 && { color: "#0A84FF", fontWeight: "600" },
+                          item.unreadCount > 0 && {
+                            color: "#0A84FF",
+                            fontWeight: "600"
+                          }
                         ]}
                       >
+
                         {renderMessagePreview(item.latestMessage)}
+
                       </Text>
+
                     </View>
 
-
                   </View>
+
+
+                  {/* unread badge */}
                   {item.unreadCount > 0 && (
+
                     <View style={styles.unreadBadge}>
+
                       <Text style={styles.unreadText}>
                         {item.unreadCount}
                       </Text>
+
                     </View>
+
                   )}
+
                 </TouchableOpacity>
+
               );
+
             }}
           />
         ) : (
@@ -536,7 +628,13 @@ export default function HomeScreen() {
           onPressOut={() => setMenuVisible(false)}
         >
           <View style={styles.menuContainer}>
-            <TouchableOpacity style={styles.menuItem}>
+            <TouchableOpacity
+              style={styles.menuItem}
+              onPress={() => {
+                navigation.navigate("CreateGroupScreen");
+                setMenuVisible(false);
+              }}
+            >
               <Text style={styles.menuText}>New Group</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.menuItem}>
