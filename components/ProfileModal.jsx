@@ -22,12 +22,26 @@ import { API_BASE_URL } from "../config";
 
 export default function ProfileModal({ visible, onClose, profileData }) {
     const [tab, setTab] = useState("profile");
+    const [admins, setAdmins] = useState(
+
+        Array.isArray(profileData.groupAdmins)
+            ? profileData.groupAdmins
+            : []
+
+    );
 
     const router = useRouter();
 
-    const { openChat } = useChats();
+    const { openChat, makeGroupAdmin, deleteGroup } = useChats();
 
     const { user, token } = useAuth();
+
+    const isAdmin = admins.some(
+
+        admin =>
+            String(admin._id || admin) === String(user._id)
+
+    );
 
     const openMemberChat = async (member) => {
 
@@ -70,56 +84,64 @@ export default function ProfileModal({ visible, onClose, profileData }) {
 
     };
 
-    const deleteGroup = () => {
+    // const deleteGroup = () => {
 
-        Alert.alert(
+    //     Alert.alert(
 
-            "Delete group?",
-            "All messages will be deleted permanently",
+    //         "Delete group?",
+    //         "All messages will be deleted permanently",
 
-            [
-                { text: "Cancel" },
+    //         [
+    //             { text: "Cancel" },
 
-                {
-                    text: "Delete",
-                    style: "destructive",
-                    onPress: confirmDelete
-                }
-            ]
+    //             {
+    //                 text: "Delete",
+    //                 style: "destructive",
+    //                 onPress: confirmDelete
+    //             }
+    //         ]
 
-        );
+    //     );
 
-    };
+    // };
 
     const confirmDelete = async () => {
 
-        try {
+        const ok =
+            await deleteGroup(
 
-            console.log("Deleting group:", profileData.chatId);
-
-            await axios.delete(
-
-                `${API_BASE_URL}/chat/group/${profileData.chatId}`,
-
-                {
-                    headers: {
-                        Authorization: `Bearer ${token}`
-                    }
-                }
+                profileData.chatId
 
             );
+
+        if (ok) {
 
             onClose();
 
             router.replace("/");
 
-        } catch (err) {
+        }
 
-            console.log("DELETE ERROR:", err.response?.data || err.message);
+    };
+
+    const makeAdmin = async (member) => {
+
+        const chat = await makeGroupAdmin(
+
+            profileData.chatId,
+
+            member._id
+
+        );
+
+        if (chat) {
+
+            setAdmins(chat.groupAdmins);
 
         }
 
     };
+
 
     return (
         <Modal visible={visible} animationType="fade">
@@ -227,15 +249,27 @@ export default function ProfileModal({ visible, onClose, profileData }) {
 
                                         .sort((a, b) => {
 
-                                            const aIsAdmin =
-                                                String(profileData.adminId) === String(a._id);
+                                            const aAdmin =
+                                                admins.some(
 
-                                            const bIsAdmin =
-                                                String(profileData.adminId) === String(b._id);
+                                                    admin =>
+                                                        String(admin._id || admin)
+                                                        === String(a._id)
 
-                                            if (aIsAdmin) return -1;
+                                                );
 
-                                            if (bIsAdmin) return 1;
+                                            const bAdmin =
+                                                admins.some(
+
+                                                    admin =>
+                                                        String(admin._id || admin)
+                                                        === String(b._id)
+
+                                                );
+
+                                            if (aAdmin) return -1;
+
+                                            if (bAdmin) return 1;
 
                                             return 0;
 
@@ -247,6 +281,40 @@ export default function ProfileModal({ visible, onClose, profileData }) {
                                                 key={user._id}
                                                 style={styles.memberRow}
                                                 onPress={() => openMemberChat(user)}
+                                                onLongPress={() => {
+
+                                                    const isTargetAdmin =
+                                                        admins.some(
+
+                                                            admin =>
+                                                                String(admin._id || admin)
+                                                                === String(user._id)
+
+                                                        );
+
+                                                    if (isAdmin && !isTargetAdmin) {
+
+                                                        Alert.alert(
+
+                                                            "Make admin?",
+
+                                                            `Make ${user.name} admin?`,
+
+                                                            [
+                                                                { text: "Cancel" },
+
+                                                                {
+                                                                    text: "Yes",
+                                                                    onPress: () => makeAdmin(user)
+                                                                }
+
+                                                            ]
+
+                                                        );
+
+                                                    }
+
+                                                }}
                                             >
 
                                                 <Avatar
@@ -273,15 +341,21 @@ export default function ProfileModal({ visible, onClose, profileData }) {
                                                 </View>
 
 
-                                                {String(profileData.adminId) === String(user._id) && (
+                                                {admins.some(
 
-                                                    <Text style={styles.adminBadge}>
+                                                    admin =>
+                                                        String(admin._id || admin)
+                                                        === String(user._id)
 
-                                                        ADMIN
+                                                ) && (
 
-                                                    </Text>
+                                                        <Text style={styles.adminBadge}>
 
-                                                )}
+                                                            ADMIN
+
+                                                        </Text>
+
+                                                    )}
 
                                             </TouchableOpacity>
 
@@ -315,13 +389,29 @@ export default function ProfileModal({ visible, onClose, profileData }) {
                                 label="Block User"
                                 danger
                             />
-                            {profileData?.isGroup && String(profileData.adminId) === String(user._id) && (
+                            {profileData?.isGroup && isAdmin && (
 
                                 <ActionRow
                                     icon="trash-outline"
                                     label="Delete Group"
                                     danger
-                                    onPress={deleteGroup}
+                                    onPress={() => {
+
+                                        Alert.alert(
+                                            "Delete group?",
+                                            "All messages will be deleted permanently",
+                                            [
+                                                { text: "Cancel" },
+
+                                                {
+                                                    text: "Delete",
+                                                    style: "destructive",
+                                                    onPress: confirmDelete
+                                                }
+                                            ]
+                                        );
+
+                                    }}
                                 />
 
                             )}

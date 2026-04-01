@@ -20,11 +20,14 @@ import { useAuth } from "../context/AuthContext";
 import { API_BASE_URL } from "../config";
 import { useRouter } from "expo-router";
 import Avatar from "../components/Avatar";
+import { useChats } from "../context/ChatContext";
 
 export default function CreateGroupScreen() {
 
   const { token } = useAuth();
   const router = useRouter();
+
+  const { createGroup } = useChats();
 
   const [contacts, setContacts] = useState([]);
   const [loadingContacts, setLoadingContacts] = useState(true);
@@ -112,8 +115,7 @@ export default function CreateGroupScreen() {
 
   };
 
-
-  const createGroup = async () => {
+  const handleCreateGroup = async () => {
 
     if (!groupName) {
 
@@ -133,50 +135,23 @@ export default function CreateGroupScreen() {
 
       setCreating(true);
 
-      const formData = new FormData();
+      const chat = await createGroup({
 
-      formData.append("name", groupName);
+        name: groupName,
 
-      formData.append(
-        "users",
-        JSON.stringify(selectedUsers)
-      );
+        users: selectedUsers,
 
-      if (groupImage) {
+        image: groupImage
 
-        formData.append("groupImage", {
+      });
 
-          uri: groupImage.uri,
+      if (!chat) {
 
-          name: "group.jpg",
+        Alert.alert("Error creating group");
 
-          type: "image/jpeg"
-
-        });
+        return;
 
       }
-
-
-      const res = await axios.post(
-
-        `${API_BASE_URL}/chat/group`,
-
-        formData,
-
-        {
-
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "multipart/form-data"
-          }
-
-        }
-
-      );
-
-
-      const chat = res.data.chat;
-
 
       router.replace({
 
@@ -192,6 +167,8 @@ export default function CreateGroupScreen() {
 
           users: JSON.stringify(chat.users),
 
+          groupAdmins: JSON.stringify(chat.groupAdmins),
+
           profileImage: chat.groupImage?.url || null
 
         }
@@ -202,8 +179,6 @@ export default function CreateGroupScreen() {
 
       console.log(err);
 
-      Alert.alert("Error creating group");
-
     } finally {
 
       setCreating(false);
@@ -211,6 +186,7 @@ export default function CreateGroupScreen() {
     }
 
   };
+
 
 
   const renderItem = ({ item }) => {
@@ -312,7 +288,7 @@ export default function CreateGroupScreen() {
 
       <TouchableOpacity
         style={styles.button}
-        onPress={createGroup}
+        onPress={handleCreateGroup}
       >
 
         {creating ? (

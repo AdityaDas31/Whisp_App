@@ -495,12 +495,149 @@ export const ChatProvider = ({ children }) => {
     setChats(merged);
   };
 
-  const safeLoadChatsFromLocalDB = async  () => {
+  const safeLoadChatsFromLocalDB = async () => {
     clearTimeout(loadChatsTimer);
 
     loadChatsTimer = setTimeout(() => {
       loadChatsFromLocalDB();
     }, 100); // ⏱️ 100ms is enough
+  };
+
+  // ---------------- GROUP CHAT ----------------
+
+  // create group
+  const createGroup = async ({ name, users, image }) => {
+
+    try {
+
+      const formData = new FormData();
+
+      formData.append("name", name);
+
+      formData.append(
+        "users",
+        JSON.stringify(users)
+      );
+
+      if (image) {
+
+        formData.append("groupImage", {
+
+          uri: image.uri,
+
+          name: "group.jpg",
+
+          type: "image/jpeg"
+
+        });
+
+      }
+
+      const res = await axios.post(
+
+        `${API_BASE_URL}/chat/group`,
+
+        formData,
+
+        {
+
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "multipart/form-data"
+          }
+
+        }
+
+      );
+
+      // refresh chat list
+      safeLoadChatsFromLocalDB();
+
+      return res.data.chat;
+
+    } catch (err) {
+
+      console.log("createGroup error", err);
+
+      return null;
+
+    }
+
+  };
+
+
+
+  // make admin
+  const makeGroupAdmin = async (chatId, userId) => {
+
+    try {
+
+      const res = await axios.put(
+
+        `${API_BASE_URL}/chat/group/admin`,
+
+        { chatId, userId },
+
+        {
+          headers: {
+            Authorization: `Bearer ${token}`
+          }
+        }
+
+      );
+
+      safeLoadChatsFromLocalDB();
+
+      return res.data.chat;
+
+    } catch (err) {
+
+      console.log("make admin error", err);
+
+      return null;
+
+    }
+
+  };
+
+
+
+  // delete group
+  const deleteGroup = async (chatId) => {
+
+    try {
+
+      console.log("DELETE CHAT ID:", chatId);
+
+      await axios.delete(
+
+        `${API_BASE_URL}/chat/group/${chatId}`,
+
+        {
+
+          headers: {
+            Authorization: `Bearer ${token}`
+          }
+
+        }
+
+      );
+
+      safeLoadChatsFromLocalDB();
+
+      return true;
+
+    } catch (err) {
+
+      console.log(
+        "delete group error",
+        err.response?.data
+      );
+
+      return false;
+
+    }
+
   };
 
 
@@ -520,7 +657,10 @@ export const ChatProvider = ({ children }) => {
         loadLocalMessages,
         loadChatsFromLocalDB,
         dbReady,
-        safeLoadChatsFromLocalDB
+        safeLoadChatsFromLocalDB,
+        createGroup,
+        makeGroupAdmin,
+        deleteGroup
       }}
     >
       {children}

@@ -350,7 +350,7 @@ export default function HomeScreen() {
                         isGroup: true,
                         users: JSON.stringify(item.users),
                         profileImage: item.groupImage?.url || null,
-                        adminId: item.groupAdmin?._id
+                        groupAdmins:JSON.stringify(item.groupAdmins)
 
                       }
 
