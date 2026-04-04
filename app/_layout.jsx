@@ -132,6 +132,7 @@ function AppNavigator() {
         <Stack.Screen name="ChatScreen" options={{ headerShown: false }} />
         <Stack.Screen name="SettingsScreen" options={{ headerShown: false }} />
         <Stack.Screen name="ProfileScreen" options={{ headerShown: false }} />
+        <Stack.Screen name="AddMemberScreen" options={{ headerShown: false }} />
         <Stack.Screen
           name="ChatSettingsScreen"
           options={{ headerShown: false }}

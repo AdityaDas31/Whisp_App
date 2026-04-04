@@ -72,7 +72,7 @@ const attachmentOptions = [
 
 
 export default function ChatScreen() {
-    const { chatId, name, profileImage, userId, myId, isGroup, users, groupAdmins } = useLocalSearchParams();
+    const { chatId, name, profileImage, userId, myId, isGroup, users, groupAdmins, leftUsers } = useLocalSearchParams();
     const groupUsers =
         users
             ? JSON.parse(users)
@@ -81,6 +81,11 @@ export default function ChatScreen() {
     const parsedGroupAdmins =
         groupAdmins
             ? JSON.parse(groupAdmins)
+            : [];
+
+    const parsedLeftUsers =
+        leftUsers
+            ? JSON.parse(leftUsers)
             : [];
 
     const { user } = useAuth();
@@ -1170,8 +1175,8 @@ export default function ChatScreen() {
                     profileImage,
                     isGroup,
                     users: groupUsers,
-                    groupAdmins: parsedGroupAdmins
-
+                    groupAdmins: parsedGroupAdmins,
+                    leftUsers: parsedLeftUsers 
                 }}
             />
 

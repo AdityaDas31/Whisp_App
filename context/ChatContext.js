@@ -1,6 +1,12 @@
 // ChatContext.js
 import axios from "axios";
-import React, { createContext, useContext, useEffect, useRef, useState } from "react";
+import React, {
+  createContext,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import { Alert } from "react-native";
 import { io } from "socket.io-client";
 import { API_BASE_URL, SOCKET_URL } from "../config";
@@ -13,12 +19,10 @@ import {
   getUnackedMessages,
   getChatsFromLocalDB,
   getLatestMessageForChat,
-  markChatMessagesAsSeen
+  markChatMessagesAsSeen,
 } from "../db/chatDB";
 
 const ChatContext = createContext();
-
-
 
 export const ChatProvider = ({ children }) => {
   const { token, user } = useAuth();
@@ -30,13 +34,11 @@ export const ChatProvider = ({ children }) => {
   const [userStatus, setUserStatus] = useState({});
   const [dbReady, setDbReady] = useState(false);
 
-
   const activeChatRef = useRef(null); // 🔥 UPDATED
 
   const messageWriteInProgress = useRef(false);
 
   let loadChatsTimer = null;
-
 
   const updateMessageInState = (messageId, status) => {
     setMessages((prev) => {
@@ -44,7 +46,7 @@ export const ChatProvider = ({ children }) => {
 
       for (const chatId in updated) {
         updated[chatId] = updated[chatId].map((m) =>
-          m._id === messageId ? { ...m, status } : m
+          m._id === messageId ? { ...m, status } : m,
         );
       }
 
@@ -52,24 +54,21 @@ export const ChatProvider = ({ children }) => {
     });
   };
 
-
   useEffect(() => {
     initDB()
       .then(() => {
         console.log("✅ SQLite ready");
         setDbReady(true); // 🔥 IMPORTANT
       })
-      .catch(err => console.log("❌ SQLite init error", err));
+      .catch((err) => console.log("❌ SQLite init error", err));
   }, []);
 
   const addLocalMessage = (chatId, message) => {
-    setMessages(prev => ({
+    setMessages((prev) => ({
       ...prev,
       [chatId]: [...(prev[chatId] || []), message],
     }));
   };
-
-
 
   // ---------------- SOCKET INIT ----------------
   useEffect(() => {
@@ -109,7 +108,6 @@ export const ChatProvider = ({ children }) => {
         // 2️⃣ ACK to server ONLY after save
         s.emit("message:ack", { messageId: message._id });
 
-
         // ✅ persistence ACK (NEW)
         s.emit("message:persisted", {
           messageId: message._id,
@@ -119,7 +117,6 @@ export const ChatProvider = ({ children }) => {
 
         // 🔥 ADD THIS
         safeLoadChatsFromLocalDB();
-
 
         // 3️⃣ Reload from DB
         const rows = await getMessagesByChat(chatId);
@@ -140,9 +137,7 @@ export const ChatProvider = ({ children }) => {
       } catch (err) {
         console.log("❌ message:new handler error", err);
       }
-
     });
-
 
     // ✅ MESSAGE DELIVERED
     s.on("message:delivered", async ({ messageId }) => {
@@ -160,9 +155,7 @@ export const ChatProvider = ({ children }) => {
 
       // 3️⃣ 🔥 Refresh HomeScreen data from SQLite
       safeLoadChatsFromLocalDB();
-
     });
-
 
     // user online/offline
 
@@ -208,12 +201,10 @@ export const ChatProvider = ({ children }) => {
     // 2️⃣ Refresh chat list from SQLite
     safeLoadChatsFromLocalDB();
 
-
     // 3️⃣ Inform server
     socket.emit("joinRoom", { chatId });
     socket.emit("chat:seen", { chatId });
   };
-
 
   // 🔹 LEAVE CHAT
   const leaveChat = async () => {
@@ -227,15 +218,13 @@ export const ChatProvider = ({ children }) => {
     // 🔥 Wait until DB is stable
     const waitForDB = async () => {
       while (messageWriteInProgress.current) {
-        await new Promise(res => setTimeout(res, 50));
+        await new Promise((res) => setTimeout(res, 50));
       }
       safeLoadChatsFromLocalDB();
-
     };
 
     waitForDB();
   };
-
 
   // ---------------- API ----------------
 
@@ -255,7 +244,7 @@ export const ChatProvider = ({ children }) => {
       const res = await axios.post(
         `${API_BASE_URL}/chat/chat`,
         { userId },
-        { headers: { Authorization: `Bearer ${token}` } }
+        { headers: { Authorization: `Bearer ${token}` } },
       );
       return res.data.chat;
     } catch {
@@ -285,7 +274,6 @@ export const ChatProvider = ({ children }) => {
       [chatId]: parsed,
     }));
   };
-
 
   const sendMessage = async (chatId, messageData) => {
     try {
@@ -328,55 +316,57 @@ export const ChatProvider = ({ children }) => {
             onUploadProgress: (e) => {
               const percent = Math.round((e.loaded * 100) / e.total);
 
-              setMessages(prev => ({
+              setMessages((prev) => ({
                 ...prev,
-                [chatId]: prev[chatId].map(m =>
+                [chatId]: prev[chatId].map((m) =>
                   m._id === tempId
                     ? {
-                      ...m,
-                      progress: Math.max(m.progress || 0, Math.min(percent, 99)),
-                      status: "uploading",
-                    }
-                    : m
+                        ...m,
+                        progress: Math.max(
+                          m.progress || 0,
+                          Math.min(percent, 99),
+                        ),
+                        status: "uploading",
+                      }
+                    : m,
                 ),
               }));
             },
-
-          }
+          },
         );
 
-        setMessages(prev => ({
+        setMessages((prev) => ({
           ...prev,
-          [chatId]: prev[chatId].map(m =>
+          [chatId]: prev[chatId].map((m) =>
             m._id === tempId
               ? {
-                ...m,
-                status: "processing",
-                progress: 99,
-              }
-              : m
+                  ...m,
+                  status: "processing",
+                  progress: 99,
+                }
+              : m,
           ),
         }));
 
-        await new Promise(res => setTimeout(res, 150));
+        await new Promise((res) => setTimeout(res, 150));
 
         const realMsg = res.data.message;
 
         // 🔥 REPLACE TEMP WITH REAL MESSAGE
-        setMessages(prev => ({
+        setMessages((prev) => ({
           ...prev,
-          [chatId]: prev[chatId].map(m =>
+          [chatId]: prev[chatId].map((m) =>
             m._id === tempId
               ? {
-                ...realMsg,
-                media: {
-                  ...realMsg.media,
-                  localUri: messageData.localUri,
-                },
-                status: "sent",
-                progress: 100, // ✅ ONLY HERE
-              }
-              : m
+                  ...realMsg,
+                  media: {
+                    ...realMsg.media,
+                    localUri: messageData.localUri,
+                  },
+                  status: "sent",
+                  progress: 100, // ✅ ONLY HERE
+                }
+              : m,
           ),
         }));
 
@@ -389,7 +379,7 @@ export const ChatProvider = ({ children }) => {
               localUri: messageData.localUri, // 🔥 persist sender's local file
             },
           },
-          user._id
+          user._id,
         );
 
         socket.emit("sendMessage", { messageId: realMsg._id });
@@ -399,7 +389,7 @@ export const ChatProvider = ({ children }) => {
         res = await axios.post(
           `${API_BASE_URL}/message/message`,
           { chatId, ...messageData },
-          { headers: { Authorization: `Bearer ${token}` } }
+          { headers: { Authorization: `Bearer ${token}` } },
         );
       }
 
@@ -420,7 +410,7 @@ export const ChatProvider = ({ children }) => {
 
       setMessages((prev) => ({
         ...prev,
-        [chatId]: rows.map(r => ({
+        [chatId]: rows.map((r) => ({
           _id: r.id,
           chatId: r.chatId,
           sender: r.senderId,
@@ -433,9 +423,7 @@ export const ChatProvider = ({ children }) => {
         })),
       }));
       setChats((prev) =>
-        prev.map((c) =>
-          c._id === chatId ? { ...c, latestMessage: msg } : c
-        )
+        prev.map((c) => (c._id === chatId ? { ...c, latestMessage: msg } : c)),
       );
 
       return true;
@@ -507,140 +495,174 @@ export const ChatProvider = ({ children }) => {
 
   // create group
   const createGroup = async ({ name, users, image }) => {
-
     try {
-
       const formData = new FormData();
 
       formData.append("name", name);
 
-      formData.append(
-        "users",
-        JSON.stringify(users)
-      );
+      formData.append("users", JSON.stringify(users));
 
       if (image) {
-
         formData.append("groupImage", {
-
           uri: image.uri,
 
           name: "group.jpg",
 
-          type: "image/jpeg"
-
+          type: "image/jpeg",
         });
-
       }
 
       const res = await axios.post(
-
         `${API_BASE_URL}/chat/group`,
 
         formData,
 
         {
-
           headers: {
             Authorization: `Bearer ${token}`,
-            "Content-Type": "multipart/form-data"
-          }
-
-        }
-
+            "Content-Type": "multipart/form-data",
+          },
+        },
       );
 
       // refresh chat list
       safeLoadChatsFromLocalDB();
 
       return res.data.chat;
-
     } catch (err) {
-
       console.log("createGroup error", err);
 
       return null;
-
     }
-
   };
-
-
 
   // make admin
   const makeGroupAdmin = async (chatId, userId) => {
-
     try {
-
       const res = await axios.put(
-
         `${API_BASE_URL}/chat/group/admin`,
 
         { chatId, userId },
 
         {
           headers: {
-            Authorization: `Bearer ${token}`
-          }
-        }
-
+            Authorization: `Bearer ${token}`,
+          },
+        },
       );
 
       safeLoadChatsFromLocalDB();
 
       return res.data.chat;
-
     } catch (err) {
-
       console.log("make admin error", err);
 
       return null;
-
     }
-
   };
-
-
 
   // delete group
   const deleteGroup = async (chatId) => {
-
     try {
-
       console.log("DELETE CHAT ID:", chatId);
 
       await axios.delete(
-
         `${API_BASE_URL}/chat/group/${chatId}`,
 
         {
-
           headers: {
-            Authorization: `Bearer ${token}`
-          }
-
-        }
-
+            Authorization: `Bearer ${token}`,
+          },
+        },
       );
 
       safeLoadChatsFromLocalDB();
 
       return true;
-
     } catch (err) {
-
-      console.log(
-        "delete group error",
-        err.response?.data
-      );
+      console.log("delete group error", err.response?.data);
 
       return false;
-
     }
-
   };
 
+  // leave group
 
+  const leaveGroup = async (chatId) => {
+    try {
+      const { data } = await axios.put(
+        `${API_BASE_URL}/chat/group/leave`,
+        { chatId },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        },
+      );
+
+      return data.success;
+    } catch (err) {
+      alert(err.response?.data?.message);
+
+      return false;
+    }
+  };
+
+  // Add new member to group
+
+  const addMemberToGroup = async (chatId, userId) => {
+    try {
+      const { data } = await axios.put(
+        `${API_BASE_URL}/chat/group/add-member`,
+
+        {
+          chatId,
+
+          userId,
+        },
+
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        },
+      );
+
+      return data.chat;
+    } catch (err) {
+      alert(err.response?.data?.message);
+
+      return null;
+    }
+  };
+
+  // Remove member
+
+  const removeMemberFromGroup = async (chatId, userId) => {
+    try {
+      const { data } = await axios.put(
+        `${API_BASE_URL}/chat/group/remove-member`,
+
+        {
+          chatId,
+
+          userId,
+        },
+
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        },
+      );
+
+      return data.chat;
+    } catch (err) {
+      alert(err.response?.data?.message);
+
+      return null;
+    }
+  };
 
   return (
     <ChatContext.Provider
@@ -660,7 +682,10 @@ export const ChatProvider = ({ children }) => {
         safeLoadChatsFromLocalDB,
         createGroup,
         makeGroupAdmin,
-        deleteGroup
+        deleteGroup,
+        leaveGroup,
+        addMemberToGroup,
+        removeMemberFromGroup
       }}
     >
       {children}
