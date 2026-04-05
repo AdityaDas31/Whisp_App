@@ -352,7 +352,7 @@ export default function HomeScreen() {
                         profileImage: item.groupImage?.url || null,
                         groupAdmins:JSON.stringify(item.groupAdmins),
                         leftUsers: JSON.stringify(item.leftUsers),
-
+                        description: item.description || null
                       }
 
                     });

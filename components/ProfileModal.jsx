@@ -9,6 +9,7 @@ import {
     StatusBar,
     ScrollView,
     Alert,
+    TextInput,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -17,6 +18,7 @@ import Avatar from "./Avatar";
 import { useRouter } from "expo-router";
 import { useChats } from "../context/ChatContext";
 import { useAuth } from "../context/AuthContext";
+import * as ImagePicker from "expo-image-picker";
 
 export default function ProfileModal({ visible, onClose, profileData }) {
     const [tab, setTab] = useState("profile");
@@ -26,12 +28,19 @@ export default function ProfileModal({ visible, onClose, profileData }) {
 
     const router = useRouter();
 
+    const [editing, setEditing] = useState(false);
+    const [groupName, setGroupName] = useState(profileData?.name || "");
+    const [description, setDescription] = useState(profileData?.description || "",);
+    const [groupImage, setGroupImage] = useState(null);
+    const [loading, setLoading] = useState(false);
+
     const {
         openChat,
         makeGroupAdmin,
         deleteGroup,
         leaveGroup,
         removeMemberFromGroup,
+        updateGroupInfo,
     } = useChats();
 
     const { user, token } = useAuth();
@@ -95,18 +104,13 @@ export default function ProfileModal({ visible, onClose, profileData }) {
         }
     };
     const removeMemberHandler = async (member) => {
+        const chat = await removeMemberFromGroup(
+            profileData.chatId,
 
-        const chat =
-            await removeMemberFromGroup(
-
-                profileData.chatId,
-
-                member._id
-
-            );
+            member._id,
+        );
 
         if (chat) {
-
             // update admins list
             setAdmins(chat.groupAdmins);
 
@@ -115,9 +119,7 @@ export default function ProfileModal({ visible, onClose, profileData }) {
 
             // update left users instantly
             profileData.leftUsers = chat.leftUsers;
-
         }
-
     };
 
     const formatLeaveTime = (date) => {
@@ -135,6 +137,75 @@ export default function ProfileModal({ visible, onClose, profileData }) {
         });
     };
 
+    const pickImage = async () => {
+        const res = await ImagePicker.launchImageLibraryAsync({
+            mediaTypes: [ImagePicker.MediaType.IMAGE], // ✅ new syntax
+
+            allowsEditing: true,
+
+            aspect: [1, 1],
+
+            quality: 0.8,
+        });
+
+        if (!res.canceled) {
+            setGroupImage(res.assets[0]);
+        }
+    };
+
+    const updateGroupHandler = async () => {
+
+        if (!groupName.trim()) {
+
+            Alert.alert("Error", "Group name required");
+
+            return;
+
+        }
+
+        setLoading(true);
+
+        const chat = await updateGroupInfo(
+
+            profileData.chatId,
+
+            groupName,
+
+            groupImage,
+
+            description
+
+        );
+
+        setLoading(false);
+
+        if (chat) {
+
+            profileData.name = chat.chatName;
+
+            profileData.profileImage = chat.groupImage?.url;
+
+            profileData.description = chat.description;
+
+            setDescription(chat.description || "");
+
+            router.setParams({
+
+                name: chat.chatName,
+
+                profileImage: chat.groupImage?.url,
+
+                description: chat.description   // ✅ important
+
+            });
+
+            setEditing(false);
+
+            Alert.alert("Success", "Group updated");
+
+        }
+
+    };
     return (
         <Modal visible={visible} animationType="fade">
             <StatusBar barStyle="light-content" backgroundColor="#0B0D10" />
@@ -148,20 +219,59 @@ export default function ProfileModal({ visible, onClose, profileData }) {
                 </SafeAreaView>
 
                 {/* HERO */}
+
                 <View style={styles.hero}>
-                    <View style={styles.avatarWrap}>
+                    <TouchableOpacity
+                        disabled={!isAdmin}
+                        onPress={() => isAdmin && editing && pickImage()}
+                        style={styles.avatarWrap}
+                    >
                         <Avatar
-                            uri={profileData?.profileImage}
+                            uri={groupImage?.uri || profileData?.profileImage}
                             name={profileData?.name}
                             size={120}
                             style={styles.avatar}
                         />
-                        <View style={styles.onlineDot} />
-                    </View>
 
-                    <Text style={styles.name}>{profileData?.name}</Text>
+                        {isAdmin && editing && (
+                            <View style={styles.editIcon}>
+                                <Ionicons name="camera" size={18} color="#fff" />
+                            </View>
+                        )}
+                    </TouchableOpacity>
 
-                    <Text style={styles.subtitle}>Online</Text>
+                    {editing ? (
+                        <TextInput
+                            value={groupName}
+                            onChangeText={setGroupName}
+                            style={styles.input}
+                            placeholder="Group name"
+                            placeholderTextColor="#888"
+                        />
+                    ) : (
+                        <Text style={styles.name}>{profileData?.name}</Text>
+                    )}
+
+                    {isAdmin &&
+                        (editing ? (
+                            <TouchableOpacity
+                                onPress={updateGroupHandler}
+                                style={styles.saveBtn}
+                            >
+                                <Text style={styles.saveText}>
+                                    {loading ? "Updating..." : "Save"}
+                                </Text>
+                            </TouchableOpacity>
+                        ) : (
+                            <TouchableOpacity
+                                onPress={() => setEditing(true)}
+                                style={styles.editBtn}
+                            >
+                                <Ionicons name="pencil" size={18} color="#fff" />
+
+                                <Text style={{ color: "#fff", marginLeft: 6 }}>Edit</Text>
+                            </TouchableOpacity>
+                        ))}
                 </View>
 
                 {/* TABS */}
@@ -187,9 +297,21 @@ export default function ProfileModal({ visible, onClose, profileData }) {
                     {tab === "profile" && (
                         <>
                             <Text style={styles.sectionTitle}>About</Text>
-                            <Text style={styles.bio}>
-                                Available on Whisp ✨ Let’s talk code, design, and ideas.
-                            </Text>
+
+                            {editing && isAdmin ? (
+                                <TextInput
+                                    value={description}
+                                    onChangeText={setDescription}
+                                    placeholder="Add group description..."
+                                    placeholderTextColor="#888"
+                                    multiline
+                                    style={styles.descInput}
+                                />
+                            ) : (
+                                <Text style={styles.bio}>
+                                    {profileData?.description || "No description"}
+                                </Text>
+                            )}
 
                             <View style={styles.divider} />
 
@@ -240,130 +362,63 @@ export default function ProfileModal({ visible, onClose, profileData }) {
                                             return 0;
                                         })
 
-                                        .map(member => (
-
-
+                                        .map((member) => (
                                             <TouchableOpacity
-
                                                 key={member._id}
-
                                                 style={styles.memberRow}
-
                                                 onPress={() => openMemberChat(member)}
-
-
                                                 onLongPress={() => {
-
-
                                                     if (!isAdmin) return;
 
+                                                    if (String(member._id) === String(user._id)) return;
 
-                                                    if (
-
-                                                        String(member._id)
-
-                                                        ===
-
-                                                        String(user._id)
-
-                                                    ) return;
-
-
-                                                    const isTargetAdmin =
-                                                        admins.some(
-
-                                                            ad =>
-                                                                String(ad._id || ad)
-                                                                === String(member._id)
-
-                                                        );
-
+                                                    const isTargetAdmin = admins.some(
+                                                        (ad) => String(ad._id || ad) === String(member._id),
+                                                    );
 
                                                     Alert.alert(
-
                                                         "Member options",
 
                                                         member.name,
 
                                                         [
-
                                                             !isTargetAdmin && {
-
                                                                 text: "Make admin",
 
-                                                                onPress: () => makeAdminHandler(member)
-
+                                                                onPress: () => makeAdminHandler(member),
                                                             },
 
-
                                                             {
-
                                                                 text: "Remove from group",
 
                                                                 style: "destructive",
 
-                                                                onPress: () => removeMemberHandler(member)
-
+                                                                onPress: () => removeMemberHandler(member),
                                                             },
 
-
                                                             {
-
                                                                 text: "Cancel",
 
-                                                                style: "cancel"
-
-                                                            }
-
-                                                        ].filter(Boolean)
-
+                                                                style: "cancel",
+                                                            },
+                                                        ].filter(Boolean),
                                                     );
-
                                                 }}
-
                                             >
-
-
                                                 <Avatar
-
                                                     uri={member.profileImage?.url}
-
                                                     name={member.name}
-
                                                     size={44}
-
                                                 />
 
-
                                                 <View style={{ flex: 1, marginLeft: 12 }}>
-
-                                                    <Text style={styles.memberName}>
-
-                                                        {member.name}
-
-                                                    </Text>
-
+                                                    <Text style={styles.memberName}>{member.name}</Text>
                                                 </View>
 
-
                                                 {admins.some(
-
-                                                    ad =>
-                                                        String(ad._id || ad)
-                                                        === String(member._id)
-
-                                                ) && (
-
-                                                        <Text style={styles.adminBadge}>
-
-                                                            ADMIN
-
-                                                        </Text>
-
-                                                    )}
-
+                                                    (ad) => String(ad._id || ad) === String(member._id),
+                                                ) && <Text style={styles.adminBadge}>ADMIN</Text>}
                                             </TouchableOpacity>
-
                                         ))}
 
                                     <View style={styles.divider} />
@@ -398,10 +453,66 @@ export default function ProfileModal({ visible, onClose, profileData }) {
                         </>
                     )}
 
-                    {tab === "media" && (
+                    {/* {tab === "media" && (
                         <Text style={styles.placeholder}>
                             Shared media will appear here
                         </Text>
+                    )} */}
+
+                    {tab === "media" && (
+
+                        profileData?.media?.length ? (
+
+                            <View style={styles.mediaGrid}>
+
+                                {profileData.media.map(item => {
+
+                                    const uri =
+                                        item.media?.localUri ||
+                                        item.media?.url;
+
+                                    return (
+
+                                        <TouchableOpacity
+                                            key={item._id}
+                                            style={styles.mediaItem}
+                                        >
+
+                                            <Image
+                                                source={{ uri }}
+                                                style={styles.mediaImage}
+                                            />
+
+                                            {item.media?.format === "video" && (
+
+                                                <View style={styles.videoIcon}>
+
+                                                    <Ionicons
+                                                        name="videocam"
+                                                        size={16}
+                                                        color="#fff"
+                                                    />
+
+                                                </View>
+
+                                            )}
+
+                                        </TouchableOpacity>
+
+                                    );
+
+                                })}
+
+                            </View>
+
+                        ) : (
+
+                            <Text style={styles.placeholder}>
+                                No media yet
+                            </Text>
+
+                        )
+
                     )}
 
                     {tab === "settings" && (
@@ -502,6 +613,48 @@ const styles = StyleSheet.create({
         marginTop: 20,
     },
 
+    input: {
+        marginTop: 12,
+        backgroundColor: "#1c1c1e",
+        padding: 10,
+        borderRadius: 8,
+        color: "#fff",
+        width: 200,
+        textAlign: "center",
+    },
+
+    editBtn: {
+        flexDirection: "row",
+        marginTop: 10,
+        alignItems: "center",
+        backgroundColor: "#1c1c1e",
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        borderRadius: 20,
+    },
+
+    saveBtn: {
+        marginTop: 10,
+        backgroundColor: "#0A84FF",
+        paddingHorizontal: 18,
+        paddingVertical: 8,
+        borderRadius: 20,
+    },
+
+    saveText: {
+        color: "#fff",
+        fontWeight: "600",
+    },
+
+    editIcon: {
+        position: "absolute",
+        bottom: 5,
+        right: 5,
+        backgroundColor: "#000",
+        padding: 6,
+        borderRadius: 20,
+    },
+
     avatarWrap: {
         position: "relative",
     },
@@ -575,6 +728,15 @@ const styles = StyleSheet.create({
         color: "#fff",
         marginBottom: 8,
     },
+    descInput: {
+        marginTop: 8,
+        backgroundColor: "#1c1c1e",
+        padding: 12,
+        borderRadius: 10,
+        color: "#fff",
+        minHeight: 70,
+        textAlignVertical: "top"
+    },
 
     bio: {
         fontSize: 14,
@@ -627,5 +789,51 @@ const styles = StyleSheet.create({
     leftText: {
         color: "#8e8e93",
         fontSize: 12,
+    },
+
+    mediaGrid: {
+
+        flexDirection: "row",
+
+        flexWrap: "wrap",
+
+        gap: 6
+
+    },
+
+    mediaItem: {
+
+        width: "32%",
+
+        aspectRatio: 1,
+
+        borderRadius: 8,
+
+        overflow: "hidden"
+
+    },
+
+    mediaImage: {
+
+        width: "100%",
+
+        height: "100%"
+
+    },
+
+    videoIcon: {
+
+        position: "absolute",
+
+        bottom: 6,
+
+        right: 6,
+
+        backgroundColor: "rgba(0,0,0,0.6)",
+
+        padding: 4,
+
+        borderRadius: 6
+
     },
 });

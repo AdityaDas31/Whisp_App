@@ -321,13 +321,13 @@ export const ChatProvider = ({ children }) => {
                 [chatId]: prev[chatId].map((m) =>
                   m._id === tempId
                     ? {
-                        ...m,
-                        progress: Math.max(
-                          m.progress || 0,
-                          Math.min(percent, 99),
-                        ),
-                        status: "uploading",
-                      }
+                      ...m,
+                      progress: Math.max(
+                        m.progress || 0,
+                        Math.min(percent, 99),
+                      ),
+                      status: "uploading",
+                    }
                     : m,
                 ),
               }));
@@ -340,10 +340,10 @@ export const ChatProvider = ({ children }) => {
           [chatId]: prev[chatId].map((m) =>
             m._id === tempId
               ? {
-                  ...m,
-                  status: "processing",
-                  progress: 99,
-                }
+                ...m,
+                status: "processing",
+                progress: 99,
+              }
               : m,
           ),
         }));
@@ -358,14 +358,14 @@ export const ChatProvider = ({ children }) => {
           [chatId]: prev[chatId].map((m) =>
             m._id === tempId
               ? {
-                  ...realMsg,
-                  media: {
-                    ...realMsg.media,
-                    localUri: messageData.localUri,
-                  },
-                  status: "sent",
-                  progress: 100, // ✅ ONLY HERE
-                }
+                ...realMsg,
+                media: {
+                  ...realMsg.media,
+                  localUri: messageData.localUri,
+                },
+                status: "sent",
+                progress: 100, // ✅ ONLY HERE
+              }
               : m,
           ),
         }));
@@ -664,6 +664,55 @@ export const ChatProvider = ({ children }) => {
     }
   };
 
+  // update group info (name, image)
+
+  const updateGroupInfo = async (chatId, name, image, description) => {
+
+    try {
+
+      const formData = new FormData();
+
+      formData.append("chatId", chatId);
+
+      if (name)
+        formData.append("name", name);
+
+      if (description !== undefined)
+        formData.append("description", description);
+
+      if (image) {
+        formData.append("groupImage", {
+          uri: image.uri,
+          name: "group.jpg",
+          type: "image/jpeg"
+        });
+      }
+
+      const res = await axios.put(
+        `${API_BASE_URL}/chat/group/update`,
+        formData,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "multipart/form-data"
+          }
+        }
+      );
+
+      safeLoadChatsFromLocalDB();
+
+      return res.data.chat;
+
+    } catch (err) {
+
+      console.log("update group error", err.response?.data);
+
+      return null;
+
+    }
+
+  };
+
   return (
     <ChatContext.Provider
       value={{
@@ -685,7 +734,8 @@ export const ChatProvider = ({ children }) => {
         deleteGroup,
         leaveGroup,
         addMemberToGroup,
-        removeMemberFromGroup
+        removeMemberFromGroup,
+        updateGroupInfo
       }}
     >
       {children}
