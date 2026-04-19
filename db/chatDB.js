@@ -86,6 +86,40 @@ export const saveMessage = async (msg, myUserId) => {
 
     const isMine = senderId === myUserId;
 
+    // ⭐ ADD THIS BLOCK HERE
+    // handle deleted message before saving locally
+    if (msg.deletedForEveryone) {
+
+        let text;
+
+        if (msg.deletedByAdmin) {
+
+            text = "This message was deleted by admin";
+
+        } else if (
+            (typeof msg.deletedBy === "object"
+                ? msg.deletedBy._id
+                : msg.deletedBy)?.toString() === myUserId
+        ) {
+
+            text = "You deleted this message";
+
+        } else {
+
+            text = "This message was deleted";
+
+        }
+
+        msg.type = "text";
+        msg.content = text;
+
+        msg.media = null;
+        msg.location = null;
+        msg.contact = null;
+        msg.poll = null;
+
+    }
+
     //MEDIA HANDLING (LOCAL-FIRST)
     let media = null;
 
@@ -244,6 +278,47 @@ export const updateMessageLocalUri = async (messageId, localUri) => {
         [JSON.stringify(media), messageId]
     );
 };
+
+export const updateDeletedMessage = async (
+    messageId,
+    deletedBy,
+    deletedByAdmin,
+    myUserId
+) => {
+
+    const db = await getDB();
+
+    let text;
+
+    if (deletedByAdmin) {
+
+        text = "This message was deleted by admin";
+
+    } else if (deletedBy === myUserId) {
+
+        text = "You deleted this message";
+
+    } else {
+
+        text = "This message was deleted";
+
+    }
+
+    await db.runAsync(
+        `
+        UPDATE messages
+        SET
+            type = 'text',
+            content = ?,
+            media = NULL,
+            extra = NULL
+        WHERE id = ?
+        `,
+        [text, messageId]
+    );
+
+};
+
 
 
 

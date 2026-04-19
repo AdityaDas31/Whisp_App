@@ -89,7 +89,7 @@ export default function ChatScreen() {
             : [];
 
     const { user } = useAuth();
-    const { sendMessage, messages, joinChat, userStatus, socket, leaveChat, fetchChats, loadLocalMessages } = useChats();
+    const { sendMessage, messages, joinChat, userStatus, socket, leaveChat, fetchChats, loadLocalMessages, deleteMessage } = useChats();
     const { startCall } = useCall();
 
     const [text, setText] = useState("");
@@ -281,8 +281,34 @@ export default function ChatScreen() {
 
             switch (message.type) {
                 case "text":
+
+                    if (
+                        message.content === "This message was deleted" ||
+                        message.content === "You deleted this message" ||
+                        message.content === "This message was deleted by admin"
+                    ) {
+
+                        return (
+                            <Text
+                                style={{
+                                    fontStyle: "italic",
+                                    opacity: 0.7,
+                                    color: textColor
+                                }}
+                            >
+                                {message.content}
+                            </Text>
+                        );
+
+                    }
+
                     return (
-                        <Text style={[styles.textMessage, { color: textColor }]}>
+                        <Text
+                            style={[
+                                styles.textMessage,
+                                { color: textColor }
+                            ]}
+                        >
                             {message.content}
                         </Text>
                     );
@@ -962,7 +988,52 @@ export default function ChatScreen() {
                         <Ionicons name="arrow-redo-outline" size={22} style={styles.headerIcon} />
                         <Ionicons name="star-outline" size={22} style={styles.headerIcon} />
                         <Ionicons name="information-circle-outline" size={22} style={styles.headerIcon} />
-                        <Ionicons name="trash-outline" size={22} style={styles.headerIcon} />
+                        {/* <Ionicons name="trash-outline" size={22} style={styles.headerIcon} /> */}
+                        <Ionicons
+                            name="trash-outline"
+                            size={22}
+                            style={styles.headerIcon}
+                            onPress={() => {
+
+                                Alert.alert(
+
+                                    "Delete message",
+
+                                    "Are you sure you want to delete this message?",
+
+                                    [
+
+                                        {
+                                            text: "Cancel",
+                                            style: "cancel"
+                                        },
+
+                                        {
+
+                                            text: "Delete",
+
+                                            style: "destructive",
+
+                                            onPress: async () => {
+
+                                                for (let id of selectedMessages) {
+
+                                                    await deleteMessage(id, chatId);
+
+                                                }
+
+                                                setSelectedMessages([]);
+
+                                            }
+
+                                        }
+
+                                    ]
+
+                                );
+
+                            }}
+                        />
                         <Ionicons name="ellipsis-vertical" size={22} style={styles.headerIcon} />
                     </View>
                 </View>
@@ -970,18 +1041,6 @@ export default function ChatScreen() {
                 /* ✅ Normal Chat Header */
                 <View style={[styles.header, { backgroundColor: theme.backgroundColor }]}>
                     <TouchableOpacity style={styles.headerLeft} onPress={() => setProfileVisible(true)}>
-                        {/* <Image
-                            source={{ uri: profileImage }}
-                            style={[
-                                styles.headerImage,
-                                {
-                                    width: avatarSize,
-                                    height: avatarSize,
-                                    borderRadius: avatarSize / 2,
-                                    marginRight: isTablet ? 16 : 12,
-                                },
-                            ]}
-                        /> */}
 
                         <Avatar
                             uri={profileImage}

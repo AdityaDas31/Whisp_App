@@ -20,6 +20,7 @@ import {
   getChatsFromLocalDB,
   getLatestMessageForChat,
   markChatMessagesAsSeen,
+  updateDeletedMessage
 } from "../db/chatDB";
 
 const ChatContext = createContext();
@@ -155,6 +156,30 @@ export const ChatProvider = ({ children }) => {
 
       // 3️⃣ 🔥 Refresh HomeScreen data from SQLite
       safeLoadChatsFromLocalDB();
+    });
+
+    // ✅ MESSAGE DELETED
+
+    s.on("message:deleted", async ({
+      messageId,
+      deletedBy,
+      deletedByAdmin,
+      chatId
+    }) => {
+
+      // update local sqlite
+      await updateDeletedMessage(
+        messageId,
+        deletedBy,
+        deletedByAdmin,
+        user._id
+      );
+
+      // reload chat messages
+      await loadLocalMessages(chatId);
+
+      safeLoadChatsFromLocalDB();
+
     });
 
     // user online/offline
@@ -491,6 +516,31 @@ export const ChatProvider = ({ children }) => {
     }, 100); // ⏱️ 100ms is enough
   };
 
+  const deleteMessage = async (messageId, chatId) => {
+
+    try {
+
+      await axios.delete(
+        `${API_BASE_URL}/message/message/${messageId}`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`
+          }
+        }
+      );
+
+      return true;
+
+    } catch (err) {
+
+      Alert.alert("Error", "Delete failed");
+
+      return false;
+
+    }
+
+  };
+
   // ---------------- GROUP CHAT ----------------
 
   // create group
@@ -729,6 +779,7 @@ export const ChatProvider = ({ children }) => {
         loadChatsFromLocalDB,
         dbReady,
         safeLoadChatsFromLocalDB,
+        deleteMessage,
         createGroup,
         makeGroupAdmin,
         deleteGroup,
