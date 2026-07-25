@@ -9,13 +9,17 @@ import TabBarBackground from "@/components/ui/TabBarBackground";
 
 import { useAuth } from "@/context/AuthContext";
 import GetStart from "../GetStart";
+import { useTheme } from "../../context/ThemeContext";
 
 export default function TabLayout() {
   const { user, loading } = useAuth();
 
+  const { theme } = useTheme();
+
+
   // Define your active/inactive colors
-  const activeColor = "#007AFF"; // professional blue
-  const inactiveColor = "#8E8E93"; // soft gray
+  const activeColor = theme.colors.primary; // professional blue
+  const inactiveColor = theme.colors.text; // soft gray
 
   if (loading) {
     return (
@@ -38,7 +42,7 @@ export default function TabLayout() {
         tabBarButton: HapticTab,
         tabBarBackground: TabBarBackground,
         tabBarStyle: {
-          backgroundColor: "#F7F8FA", // minimal light background
+          backgroundColor: theme.colors.background, // minimal light background
           borderTopWidth: 0,
           height: 70,
           position: Platform.OS === "ios" ? "absolute" : "relative",
@@ -48,15 +52,14 @@ export default function TabLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: "",
+          title: "Chats",
           tabBarIcon: ({ color }) => <Ionicons name="chatbubble-ellipses" size={28} color={color} />,
         }}
       />
       <Tabs.Screen
         name="story"
         options={{
-          title: "",
-          tabBarShowLabel: false,
+          title: "Updates",
           tabBarIcon: ({ color, size }) => (
             <View>
               <Ionicons name="planet" size={28} color={color} />
@@ -80,7 +83,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="calls"
         options={{
-          title: "",
+          title: "Calls",
           tabBarIcon: ({ color }) => <MaterialIcons name="phone-callback" size={28} color={color} />,
         }}
       />

@@ -10,18 +10,20 @@ import React, {
 import { Alert } from "react-native";
 import { io } from "socket.io-client";
 import { API_BASE_URL, SOCKET_URL } from "../config";
-import { useAuth } from "./AuthContext";
 import {
-  initDB,
-  saveMessage,
-  getMessagesByChat,
-  updateMessageStatus,
-  getUnackedMessages,
   getChatsFromLocalDB,
   getLatestMessageForChat,
+  getMessagesByChat,
+  getUnackedMessages,
+  initDB,
   markChatMessagesAsSeen,
-  updateDeletedMessage
+  saveMessage,
+  updateDeletedMessage,
+  updateMessageDelivery,
+  updateMessageSeen,
+  updateMessageStatus
 } from "../db/chatDB";
+import { useAuth } from "./AuthContext";
 
 const ChatContext = createContext();
 
@@ -141,21 +143,63 @@ export const ChatProvider = ({ children }) => {
     });
 
     // ✅ MESSAGE DELIVERED
-    s.on("message:delivered", async ({ messageId }) => {
-      await updateMessageStatus(messageId, "delivered");
-      updateMessageInState(messageId, "delivered");
+    s.on("message:delivered", async ({ messageId, userId }) => {
+      // 1️⃣ update SQLite
+      await updateMessageDelivery(messageId, userId);
+
+      // 2️⃣ update memory
+      setMessages(prev => {
+        const updated = { ...prev };
+
+        for (const chatId in updated) {
+          updated[chatId] = updated[chatId].map(m => {
+            if (m._id === messageId) {
+              return {
+                ...m,
+                status: "delivered",
+                deliveredTo: m.deliveredTo?.some(d => d.user === userId)
+                  ? m.deliveredTo
+                  : [
+                    ...(m.deliveredTo || []),
+                    { user: userId, deliveredAt: new Date() }
+                  ]
+              };
+            }
+            return m;
+          });
+        }
+
+        return updated;
+      });
     });
 
     // ✅ MESSAGE SEEN
-    s.on("message:seen", async ({ messageId }) => {
-      // 1️⃣ Update SQLite
-      await updateMessageStatus(messageId, "seen");
+    s.on("message:seen", async ({ messageId, userId }) => {
+      await updateMessageSeen(messageId, userId);
 
-      // 2️⃣ Update in-memory messages
-      updateMessageInState(messageId, "seen");
+      setMessages(prev => {
+        const updated = { ...prev };
 
-      // 3️⃣ 🔥 Refresh HomeScreen data from SQLite
-      safeLoadChatsFromLocalDB();
+        for (const chatId in updated) {
+          updated[chatId] = updated[chatId].map(m => {
+            if (m._id === messageId) {
+              return {
+                ...m,
+                status: "seen",
+                seenBy: m.seenBy?.some(s => s.user === userId)
+                  ? m.seenBy
+                  : [
+                    ...(m.seenBy || []),
+                    { user: userId, seenAt: new Date() }
+                  ]
+              };
+            }
+            return m;
+          });
+        }
+
+        return updated;
+      });
     });
 
     // ✅ MESSAGE DELETED

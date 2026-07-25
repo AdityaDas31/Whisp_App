@@ -117,6 +117,8 @@ export const saveMessage = async (msg, myUserId) => {
         msg.location = null;
         msg.contact = null;
         msg.poll = null;
+        msg.deliveredTo = [];
+        msg.seenBy = [];
 
     }
 
@@ -145,6 +147,8 @@ export const saveMessage = async (msg, myUserId) => {
             location: msg.location,
             poll: msg.poll,
             contact: msg.contact,
+            deliveredTo: msg.deliveredTo || [],
+            seenBy: msg.seenBy || [],
         }),
         status: msg.status || "sent",
         createdAt: new Date(msg.createdAt).getTime(),
@@ -320,6 +324,64 @@ export const updateDeletedMessage = async (
 };
 
 
+export const updateMessageDelivery = async (messageId, userId) => {
+    const db = await getDB();
+
+    const rows = await db.getAllAsync(
+        `SELECT extra FROM messages WHERE id = ?`,
+        [messageId]
+    );
+
+    if (!rows.length) return;
+
+    let extra = JSON.parse(rows[0].extra || "{}");
+
+    if (!extra.deliveredTo?.some(d => d.user === userId)) {
+        extra.deliveredTo = [
+            ...(extra.deliveredTo || []),
+            {
+                user: userId,
+                deliveredAt: new Date()
+            }
+        ];
+    }
+
+    await db.runAsync(
+        `UPDATE messages SET extra = ?, status = ? WHERE id = ?`,
+        [JSON.stringify(extra), "delivered", messageId]
+    );
+};
+
+export const updateMessageSeen = async (messageId, userId) => {
+    const db = await getDB();
+
+    const rows = await db.getAllAsync(
+        `SELECT extra FROM messages WHERE id = ?`,
+        [messageId]
+    );
+
+    if (!rows.length) return;
+
+    let extra = JSON.parse(rows[0].extra || "{}");
+
+    if (!extra.seenBy?.some(s => s.user === userId)) {
+        extra.seenBy = [
+            ...(extra.seenBy || []),
+            {
+                user: userId,
+                seenAt: new Date()
+            }
+        ];
+    }
+
+    await db.runAsync(
+        `UPDATE messages SET extra = ?, status = ? WHERE id = ?`,
+        [JSON.stringify(extra), "seen", messageId]
+    );
+};
+
+
+
 
 
 
@@ -334,11 +396,19 @@ export const debugPrintMessages = async () => {
     return rows;
 };
 
+// export const resetDB = async () => {
+//     const db = await getDB();
+//     await db.execAsync(`
+//     DELETE FROM messages;
+//     DELETE FROM chats;
+//   `);
+//     console.log("🧹 SQLite DB reset");
+// };
 export const resetDB = async () => {
     const db = await getDB();
     await db.execAsync(`
-    DELETE FROM messages;
-    DELETE FROM chats;
+    DROP TABLE IF EXISTS messages;
+    DROP TABLE IF EXISTS chats;
   `);
     console.log("🧹 SQLite DB reset");
 };

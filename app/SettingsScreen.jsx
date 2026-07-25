@@ -3,16 +3,19 @@ import { View, Text, StyleSheet, Image, TouchableOpacity, ScrollView, useWindowD
 import { Ionicons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useAuth } from "../context/AuthContext"; // make sure path is correct
+import { useAuth } from "../context/AuthContext";
+import { useTheme } from "../context/ThemeContext";
+import AppStatusBar from "../components/AppStatusBar";
 
 export default function SettingsScreen() {
     const { width } = useWindowDimensions();
-
     const guidelineBaseWidth = 375;
     const scale = (size) => (width / guidelineBaseWidth) * size;
     const isTablet = width >= 768;
 
-    const styles = createStyles(width);
+
+    const { theme } = useTheme();
+    const styles = createStyles(width, theme);
 
     const navigation = useNavigation();
     const { user, fetchProfile } = useAuth();
@@ -23,11 +26,12 @@ export default function SettingsScreen() {
     }, []);
 
     return (
-        <SafeAreaView style={styles.safeArea}>
+        <SafeAreaView style={styles.safeArea} edges={["top"]}>
+            <AppStatusBar/>
             {/* Header */}
             <View style={styles.header}>
                 <TouchableOpacity onPress={() => navigation.goBack()}>
-                    <Ionicons name="arrow-back" size={24} color="#0A84FF" />
+                    <Ionicons name="arrow-back" size={24} color={theme.colors.text} />
                 </TouchableOpacity>
                 <Text style={styles.headerTitle}>Settings</Text>
             </View>
@@ -80,7 +84,7 @@ export default function SettingsScreen() {
     );
 }
 
-const createStyles = (width) => {
+const createStyles = (width, theme) => {
     const guidelineBaseWidth = 375;
     const scale = (size) => (width / guidelineBaseWidth) * size;
     const isTablet = width >= 768;
@@ -90,22 +94,22 @@ const createStyles = (width) => {
         : Math.min(width * 0.16, 70);
 
     return StyleSheet.create({
-        safeArea: { flex: 1, backgroundColor: "#F7F8FA" },
+        safeArea: { flex: 1, backgroundColor: theme.colors.background },
         header: {
             flexDirection: "row",
             alignItems: "center",
             paddingHorizontal: scale(20),
             paddingVertical: scale(14),
             borderBottomWidth: 1,
-            borderBottomColor: "#E5E5EA",
-            backgroundColor: "#fff",
+            borderBottomColor: theme.colors.border,
+            backgroundColor: theme.colors.card,
         },
 
         headerTitle: {
             fontSize: scale(isTablet ? 20 : 18),
             fontWeight: "600",
             marginLeft: scale(14),
-            color: "#1C1C1E",
+            color: theme.colors.text,
         },
 
         profileSection: {
@@ -114,8 +118,8 @@ const createStyles = (width) => {
             paddingHorizontal: scale(20),
             paddingVertical: scale(18),
             borderBottomWidth: 1,
-            borderBottomColor: "#E5E5EA",
-            backgroundColor: "#fff",
+            borderBottomColor: theme.colors.border,
+            backgroundColor: theme.colors.card,
         },
 
         avatar: {
@@ -132,19 +136,19 @@ const createStyles = (width) => {
         profileName: {
             fontSize: scale(isTablet ? 20 : 17),
             fontWeight: "600",
-            color: "#1C1C1E",
+            color: theme.colors.text,
             marginBottom: scale(4),
         },
 
         profileSubText: {
             fontSize: scale(14),
-            color: "#8E8E93",
+            color: theme.colors.secondaryText,
             marginBottom: scale(2),
         },
 
         section: {
             marginTop: scale(24),
-            backgroundColor: "#fff",
+            backgroundColor: theme.colors.card,
         },
 
         option: {
@@ -153,13 +157,13 @@ const createStyles = (width) => {
             paddingVertical: scale(18),
             paddingHorizontal: scale(20),
             borderBottomWidth: 1,
-            borderBottomColor: "#E5E5EA",
+            borderBottomColor: theme.colors.border,
         },
 
         optionText: {
             fontSize: scale(isTablet ? 18 : 16),
             marginLeft: scale(18),
-            color: "#1C1C1E",
+            color: theme.colors.text,
         },
     });
 };

@@ -1,20 +1,21 @@
 import React from "react";
-import { StatusBar as RNStatusBar, Platform } from "react-native";
+import { Platform, StatusBar as RNStatusBar } from "react-native";
 import { StatusBar } from "expo-status-bar";
+import { useTheme } from "@/context/ThemeContext";
 
-export default function AppStatusBar({
-  backgroundColor = "black",
-  style = "light",
-}) {
+export default function AppStatusBar() {
+  const { theme } = useTheme();
+
   return (
     <>
-      {/* Android background color */}
       {Platform.OS === "android" && (
-        <RNStatusBar backgroundColor={backgroundColor} translucent={false} />
+        <RNStatusBar
+          backgroundColor={theme.colors.background}
+          translucent={false}
+        />
       )}
 
-      {/* Expo status bar style */}
-      <StatusBar style={style} />
+      <StatusBar style={theme.mode === "dark" ? "light" : "dark"} />
     </>
   );
 }

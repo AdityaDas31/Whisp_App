@@ -1,6 +1,7 @@
 
 import { useEffect, useRef, useState } from "react";
 
+import { Entypo, Ionicons } from "@expo/vector-icons";
 import * as Contacts from "expo-contacts";
 import * as FileSystem from "expo-file-system/legacy";
 import * as Haptics from "expo-haptics";
@@ -9,15 +10,12 @@ import * as Location from "expo-location";
 import * as MediaLibrary from "expo-media-library";
 import { useLocalSearchParams } from "expo-router";
 import { useVideoPlayer } from "expo-video";
-import Avatar from "../components/Avatar";
-import { Entypo, Ionicons } from "@expo/vector-icons";
 import {
     ActivityIndicator,
     Alert,
     Animated,
     Image,
     Keyboard,
-    KeyboardAvoidingView,
     Linking,
     Platform,
     Pressable,
@@ -28,22 +26,23 @@ import {
     TextInput,
     TouchableOpacity,
     useWindowDimensions,
-    View,
-    Dimensions,
+    View
 } from "react-native";
 import { KeyboardAwareFlatList } from "react-native-keyboard-aware-scroll-view";
 import { SafeAreaView } from "react-native-safe-area-context";
+import Avatar from "../components/Avatar";
 
 import { useAuth } from "../context/AuthContext";
+import { useCall } from "../context/CallContext";
 import { useChats } from "../context/ChatContext";
 import { useChatTheme } from "../context/ChatThemeContext";
-import { useCall } from "../context/CallContext";
 
 import AttachModal from "../components/AttachModal";
 import ChatMediaBubble from "../components/ChatMediaBubble";
 import ContactsModal from "../components/ContactsModal";
 import MediaPreviewModal from "../components/MediaPreviewModal";
 import MediaViewerModal from "../components/MediaViewerModal";
+import MessageInfoModal from "../components/MessageInfoModal";
 import PollModal from "../components/PollModal";
 import ProfileModal from "../components/ProfileModal";
 
@@ -111,6 +110,9 @@ export default function ChatScreen() {
     const [showPopup, setShowPopup] = useState(false);
     const [currentExpr, setCurrentExpr] = useState("");
     const [mode, setMode] = useState(null);
+    const [showMessageInfo, setShowMessageInfo] = useState(false);
+    const [messageInfo, setMessageInfo] = useState(null);
+
     const popupAnim = useRef(new Animated.Value(0)).current;
 
     const [selectedMessages, setSelectedMessages] = useState([]);
@@ -270,9 +272,57 @@ export default function ChatScreen() {
             item.type === "poll";
 
 
+        const totalReceivers = isGroup
+            ? groupUsers.filter(u => u._id !== user._id).length
+            : 1;
+
+        const deliveredCount = item.deliveredTo?.length || 0;
+        const seenCount = item.seenBy?.length || 0;
+
+        let computedStatus = "sent";
+
+        if (isGroup) {
+            if (seenCount === totalReceivers) {
+                computedStatus = "seen";
+            } else if (deliveredCount === totalReceivers) {
+                computedStatus = "delivered";
+            } else {
+                computedStatus = "sent";
+            }
+        } else {
+            computedStatus = item.status;
+        }
         // Render message body based on message.type
         const renderMessageContent = (message, isMine) => {
             const textColor = isMine ? theme.myTextColor : theme.otherTextColor;
+            // ⭐ HANDLE DELETED MESSAGE FOR ALL TYPES
+            if (
+
+                message.content === "This message was deleted" ||
+
+                message.content === "You deleted this message" ||
+
+                message.content === "This message was deleted by admin"
+
+            ) {
+
+                return (
+
+                    <Text
+                        style={{
+                            fontStyle: "italic",
+                            opacity: 0.7,
+                            color: textColor
+                        }}
+                    >
+
+                        {message.content}
+
+                    </Text>
+
+                );
+
+            }
             const cardsBackground = isMine ? theme.myCardBg : theme.otherCardBg;
             const cardTextColor = isMine ? theme.myCardText : theme.otherCardText;
             const cardLinkColor = isMine ? theme.myCardLink : theme.otherCardLink;
@@ -281,27 +331,6 @@ export default function ChatScreen() {
 
             switch (message.type) {
                 case "text":
-
-                    if (
-                        message.content === "This message was deleted" ||
-                        message.content === "You deleted this message" ||
-                        message.content === "This message was deleted by admin"
-                    ) {
-
-                        return (
-                            <Text
-                                style={{
-                                    fontStyle: "italic",
-                                    opacity: 0.7,
-                                    color: textColor
-                                }}
-                            >
-                                {message.content}
-                            </Text>
-                        );
-
-                    }
-
                     return (
                         <Text
                             style={[
@@ -500,6 +529,7 @@ export default function ChatScreen() {
                     );
             }
         };
+
         return (
             <View
                 style={[
@@ -585,14 +615,14 @@ export default function ChatScreen() {
                                 <View style={{ alignSelf: "flex-end", marginTop: 4 }}>
                                     <Ionicons
                                         name={
-                                            item.status === "seen"
+                                            computedStatus === "seen"
                                                 ? "checkmark-done"
-                                                : item.status === "delivered"
+                                                : computedStatus === "delivered"
                                                     ? "checkmark-done"
                                                     : "checkmark"
                                         }
                                         size={16}
-                                        color={item.status === "seen" ? "#0A84FF" : "#999"}
+                                        color={computedStatus === "seen" ? "#0A84FF" : "#999"}
                                     />
                                 </View>
                             )}
@@ -947,7 +977,20 @@ export default function ChatScreen() {
         });
     };
 
-
+    const chatUsers = isGroup
+        ? groupUsers
+        : [
+            {
+                _id: user._id,
+                name: "You",
+                profileImage: user.profileImage
+            },
+            {
+                _id: userId,
+                name: name,
+                profileImage: profileImage
+            }
+        ];
 
 
 
@@ -987,7 +1030,41 @@ export default function ChatScreen() {
                         <Ionicons name="arrow-undo-outline" size={22} style={styles.headerIcon} />
                         <Ionicons name="arrow-redo-outline" size={22} style={styles.headerIcon} />
                         <Ionicons name="star-outline" size={22} style={styles.headerIcon} />
-                        <Ionicons name="information-circle-outline" size={22} style={styles.headerIcon} />
+                        {/* <Ionicons name="information-circle-outline" size={22} style={styles.headerIcon} /> */}
+                        <Ionicons
+
+                            name="information-circle-outline"
+
+                            size={22}
+
+                            style={styles.headerIcon}
+
+                            onPress={() => {
+
+                                if (selectedMessages.length !== 1) {
+
+                                    Alert.alert(
+                                        "Select one message",
+                                        "Please select only one message"
+                                    );
+
+                                    return;
+
+                                }
+
+                                const msg = chatMessages.find(
+
+                                    m => m._id === selectedMessages[0]
+
+                                );
+
+                                setMessageInfo(msg);
+
+                                setShowMessageInfo(true);
+
+                            }}
+
+                        />
                         {/* <Ionicons name="trash-outline" size={22} style={styles.headerIcon} /> */}
                         <Ionicons
                             name="trash-outline"
@@ -1327,6 +1404,14 @@ export default function ChatScreen() {
                 }
                 senderLabel={fullscreenSenderLabel}
                 timeLabel={fullscreenTimeLabel}
+            />
+
+            <MessageInfoModal
+                visible={showMessageInfo}
+                onClose={() => setShowMessageInfo(false)}
+                message={messageInfo}
+                users={chatUsers}
+                myId={user._id}
             />
 
 

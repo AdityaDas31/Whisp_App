@@ -25,6 +25,7 @@ import { useRouter } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import AppStatusBar from "../../components/AppStatusBar";
 import Avatar from "../../components/Avatar";
+import { useTheme } from "../../context/ThemeContext";
 
 import { mediaDevices } from "react-native-webrtc";
 
@@ -89,9 +90,6 @@ export default function HomeScreen() {
     init();
   }, []);
 
-  // useEffect(() => {
-  //   getContactsAndSync();
-  // }, []);
 
   useEffect(() => {
     if (dbReady) {
@@ -254,26 +252,47 @@ export default function HomeScreen() {
   };
 
 
-  const renderStatusTick = (message) => {
+  const renderStatusTick = (message, chat) => {
     if (!message) return null;
 
-    // normalize sender id (object OR string)
+    // normalize sender id
     const senderId =
       typeof message.sender === "object"
         ? message.sender?._id
         : message.sender;
 
-    // show ticks only for MY messages
+    // only show ticks for my messages
     if (senderId !== user._id) return null;
+
+    let computedStatus = "sent";
+
+    if (chat.isGroupChat) {
+      // 👇 total receivers = all users except me
+      const totalReceivers = chat.users.filter(u => u._id !== user._id).length;
+
+      const deliveredCount = message.deliveredTo?.length || 0;
+      const seenCount = message.seenBy?.length || 0;
+
+      if (seenCount === totalReceivers && totalReceivers > 0) {
+        computedStatus = "seen";
+      } else if (deliveredCount === totalReceivers && totalReceivers > 0) {
+        computedStatus = "delivered";
+      } else {
+        computedStatus = "sent";
+      }
+    } else {
+      // 1-to-1 chat (keep existing logic)
+      computedStatus = message.status;
+    }
 
     let iconName = "checkmark";
     let color = "#999";
 
-    if (message.status === "delivered") {
+    if (computedStatus === "delivered") {
       iconName = "checkmark-done";
     }
 
-    if (message.status === "seen") {
+    if (computedStatus === "seen") {
       iconName = "checkmark-done";
       color = "#0A84FF";
     }
@@ -288,20 +307,22 @@ export default function HomeScreen() {
     );
   };
 
-  const styles = createStyles(width, height);
+  const { theme } = useTheme();
+
+  const styles = createStyles(width, height, theme);
 
 
   return (
     <SafeAreaView style={styles.safeArea} edges={["top"]}>
-      <AppStatusBar backgroundColor="#fff" style="dark" />
+      <AppStatusBar />
       {/* Header */}
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Whisp</Text>
         <View style={styles.headerIcons}>
-          <Ionicons name="camera-outline" size={22} color="#1C1C1E" style={styles.icon} />
-          <Ionicons name="search-outline" size={22} color="#1C1C1E" style={styles.icon} />
+          {/* <Ionicons name="camera-outline" size={22} color={theme.colors.text}"#1C1C1E" style={styles.icon} /> */}
+          <Ionicons name="search-outline" size={22} color={theme.colors.text} style={styles.icon} />
           <TouchableOpacity onPress={() => setMenuVisible(true)}>
-            <Ionicons name="ellipsis-vertical" size={22} color="#1C1C1E" />
+            <Ionicons name="ellipsis-vertical" size={22} color={theme.colors.text} />
           </TouchableOpacity>
         </View>
       </View>
@@ -350,7 +371,7 @@ export default function HomeScreen() {
                         isGroup: true,
                         users: JSON.stringify(item.users),
                         profileImage: item.groupImage?.url || null,
-                        groupAdmins:JSON.stringify(item.groupAdmins),
+                        groupAdmins: JSON.stringify(item.groupAdmins),
                         leftUsers: JSON.stringify(item.leftUsers),
                         description: item.description || null
                       }
@@ -455,7 +476,7 @@ export default function HomeScreen() {
 
                     <View style={{ flexDirection: "row", alignItems: "center" }}>
 
-                      {renderStatusTick(item.latestMessage)}
+                      {renderStatusTick(item.latestMessage, item)}
 
                       <Text
                         numberOfLines={1}
@@ -525,12 +546,12 @@ export default function HomeScreen() {
           <View style={styles.modalHeader}>
             <Text style={styles.modalTitle}>Select Contact</Text>
             <TouchableOpacity onPress={() => setContactModalVisible(false)}>
-              <Ionicons name="close" size={26} color="#1C1C1E" />
+              <Ionicons name="close" size={26} color={theme.colors.text} />
             </TouchableOpacity>
           </View>
 
           {contactLoading ? (
-            <ActivityIndicator size="large" color="#0A84FF" />
+            <ActivityIndicator size="large" color={theme.colors.primary} />
           ) : (
             <FlatList
               data={matchedContacts}
@@ -661,27 +682,27 @@ export default function HomeScreen() {
   );
 }
 
-const createStyles = (width, height) => {
+const createStyles = (width, height, theme) => {
   const guidelineBaseWidth = 375;
   const scale = (size) => (width / guidelineBaseWidth) * size;
 
   return StyleSheet.create({
-    safeArea: { flex: 1, backgroundColor: "#F7F8FA" },
+    safeArea: { flex: 1, backgroundColor: theme.colors.background },
 
     header: {
-      backgroundColor: "#F7F8FA",
+      backgroundColor: theme.colors.header,
       padding: scale(16),
       flexDirection: "row",
       justifyContent: "space-between",
       alignItems: "center",
       borderBottomWidth: 1,
-      borderBottomColor: "#E5E5EA",
+      borderBottomColor: theme.colors.border,
     },
 
     headerTitle: {
       fontSize: scale(22),
       fontWeight: "700",
-      color: "#1C1C1E",
+      color: theme.colors.text,
     },
 
     headerIcons: { flexDirection: "row", alignItems: "center" },
@@ -699,7 +720,7 @@ const createStyles = (width, height) => {
       alignItems: "center",
       padding: scale(14),
       marginVertical: scale(6),
-      backgroundColor: "#FFFFFF",
+      backgroundColor: theme.colors.card,
       borderRadius: scale(12),
       elevation: 2,
     },
@@ -722,25 +743,25 @@ const createStyles = (width, height) => {
     chatName: {
       fontSize: scale(16),
       fontWeight: "600",
-      color: "#1C1C1E",
+      color: theme.colors.text,
       maxWidth: width * 0.6,
     },
 
     chatTime: {
       fontSize: scale(12),
-      color: "#6C6C6C",
+      color: theme.colors.text,
     },
 
     chatMessage: {
       fontSize: scale(14),
-      color: "#6C6C6C",
+      color: theme.colors.text,
       flex: 1,
     },
 
     empty: {
       textAlign: "center",
       marginTop: scale(30),
-      color: "#A1A1A1",
+      color: theme.colors.text,
       fontSize: scale(14),
     },
 
@@ -757,7 +778,7 @@ const createStyles = (width, height) => {
       elevation: 5,
     },
 
-    modalContainer: { flex: 1, backgroundColor: "#F7F8FA" },
+    modalContainer: { flex: 1, backgroundColor: theme.colors.background },
 
     modalHeader: {
       flexDirection: "row",
@@ -765,13 +786,13 @@ const createStyles = (width, height) => {
       alignItems: "center",
       padding: scale(16),
       borderBottomWidth: 1,
-      borderBottomColor: "#E5E5EA",
+      borderBottomColor: theme.colors.border,
     },
 
     modalTitle: {
       fontSize: scale(18),
       fontWeight: "600",
-      color: "#1C1C1E",
+      color: theme.colors.text,
     },
 
     contactCard: {
@@ -779,7 +800,7 @@ const createStyles = (width, height) => {
       alignItems: "center",
       padding: scale(14),
       marginVertical: scale(4),
-      backgroundColor: "#FFFFFF",
+      backgroundColor: theme.colors.card,
       borderRadius: scale(10),
       elevation: 2,
     },
@@ -787,12 +808,12 @@ const createStyles = (width, height) => {
     contactName: {
       fontSize: scale(16),
       fontWeight: "500",
-      color: "#1C1C1E",
+      color: theme.colors.text,
     },
 
     contactPhone: {
       fontSize: scale(14),
-      color: "#6C6C6C",
+      color: theme.colors.secondaryText ,
       marginTop: scale(2),
     },
 
@@ -859,7 +880,7 @@ const createStyles = (width, height) => {
     },
 
     menuContainer: {
-      backgroundColor: "#fff",
+      backgroundColor: theme.colors.card,
       borderRadius: scale(8),
       paddingVertical: scale(5),
       width: width * 0.5,
@@ -873,7 +894,7 @@ const createStyles = (width, height) => {
 
     menuText: {
       fontSize: scale(16),
-      color: "#1C1C1E",
+      color: theme.colors.text,
     },
 
     unreadBadge: {
@@ -896,5 +917,3 @@ const createStyles = (width, height) => {
     },
   });
 };
-
-

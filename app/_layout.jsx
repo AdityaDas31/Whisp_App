@@ -16,6 +16,7 @@ import { AuthProvider, useAuth } from "../context/AuthContext";
 import { ChatProvider } from "../context/ChatContext";
 import { StoryProvider } from "../context/StoryContext";
 import { ChatThemeProvider } from "../context/ChatThemeContext";
+import { ThemeProvider as CustomThemeProvider } from "../context/ThemeContext";
 import { CallProvider } from "../context/CallContext";
 import { useRouter } from "expo-router";
 import * as NavigationBar from "expo-navigation-bar";
@@ -123,6 +124,7 @@ function AppNavigator() {
 
   return (
     <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
+      <CustomThemeProvider>
       <Stack>
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="call" options={{ headerShown: false }} />
@@ -144,6 +146,7 @@ function AppNavigator() {
         <Stack.Screen name="CreateGroupScreen" options={{ headerShown: false }} />
         <Stack.Screen name="+not-found" />
       </Stack>
+      </CustomThemeProvider>
 
       <StatusBar style="auto" />
     </ThemeProvider>

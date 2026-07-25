@@ -17,6 +17,8 @@ import { useAuth } from "../context/AuthContext";
 import axios from "axios";
 import { API_BASE_URL } from "../config";
 import { SafeAreaView } from "react-native-safe-area-context";
+import AppStatusBar from "../components/AppStatusBar";
+import { useTheme } from "../context/ThemeContext";
 
 export default function ProfileScreen() {
   const { width, height } = useWindowDimensions();
@@ -24,7 +26,8 @@ export default function ProfileScreen() {
   const guidelineBaseWidth = 375;
   const scale = (size) => (width / guidelineBaseWidth) * size;
   const isTablet = width >= 768;
-  const styles = createStyles(width);
+  const { theme } = useTheme();
+  const styles = createStyles(width, theme);
 
 
   const navigation = useNavigation();
@@ -93,6 +96,7 @@ export default function ProfileScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea}>
+      <AppStatusBar/>
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
@@ -123,7 +127,8 @@ export default function ProfileScreen() {
             onChangeText={setName}
             style={styles.input}
             placeholder="Enter your name"
-            placeholderTextColor="#A1A1A1"
+            color={theme.colors.text}
+            placeholderTextColor={theme.colors.secondaryText}
           />
         </View>
 
@@ -135,7 +140,8 @@ export default function ProfileScreen() {
             onChangeText={setAbout}
             style={styles.input}
             placeholder="Write something about you"
-            placeholderTextColor="#A1A1A1"
+            color={theme.colors.text}
+            placeholderTextColor={theme.colors.secondaryText}
           />
         </View>
 
@@ -151,7 +157,7 @@ export default function ProfileScreen() {
   );
 }
 
-const createStyles = (width) => {
+const createStyles = (width, theme) => {
   const guidelineBaseWidth = 375;
   const scale = (size) => (width / guidelineBaseWidth) * size;
   const isTablet = width >= 768;
@@ -161,22 +167,22 @@ const createStyles = (width) => {
     : Math.min(width * 0.32, 140);
 
   return StyleSheet.create({
-    safeArea: { flex: 1, backgroundColor: "#F7F8FA" },
+    safeArea: { flex: 1, backgroundColor: theme.colors.background },
     header: {
       flexDirection: "row",
       alignItems: "center",
       paddingHorizontal: scale(18),
       paddingVertical: scale(14),
       borderBottomWidth: 1,
-      borderBottomColor: "#E5E5EA",
-      backgroundColor: "#fff",
+      borderBottomColor: theme.colors.border,
+      backgroundColor: theme.colors.card,
     },
 
     headerTitle: {
       fontSize: scale(isTablet ? 20 : 18),
       fontWeight: "600",
       marginLeft: scale(14),
-      color: "#1C1C1E",
+      color: theme.colors.text,
     },
 
     container: {
@@ -213,18 +219,18 @@ const createStyles = (width) => {
 
     label: {
       fontSize: scale(14),
-      color: "#8E8E93",
+      color: theme.colors.secondaryText,
       marginBottom: scale(6),
     },
 
     input: {
       borderWidth: 1,
-      borderColor: "#E5E5EA",
+      borderColor: theme.colors.border,
       borderRadius: scale(14),
       paddingVertical: scale(14),
       paddingHorizontal: scale(14),
       fontSize: scale(16),
-      backgroundColor: "#fff",
+      backgroundColor: theme.colors.card,
     },
 
     saveBtn: {

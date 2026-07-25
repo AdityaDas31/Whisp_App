@@ -11,7 +11,7 @@ import {
   Dimensions,
   Animated,
   Alert,
-  Easing
+  Easing,
 } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -23,11 +23,11 @@ import { useAuth } from "../../context/AuthContext";
 import Svg, { Path } from "react-native-svg";
 import { useFocusEffect } from "@react-navigation/native";
 import AppStatusBar from "../../components/AppStatusBar";
+import { useTheme } from "../../context/ThemeContext";
 
 const { width, height } = Dimensions.get("window");
 
 const CAPTION_HEIGHT = 70;
-
 
 const StoryVideoPlayer = ({
   uri,
@@ -35,9 +35,8 @@ const StoryVideoPlayer = ({
   isPaused,
   onEnd,
   progress,
-  mediaHeight
+  mediaHeight,
 }) => {
-
   const player = useVideoPlayer(uri);
 
   const rafRef = useRef(null);
@@ -46,76 +45,59 @@ const StoryVideoPlayer = ({
 
   const activeRef = useRef(false);
 
-
   /*
    Track active state
   */
   useEffect(() => {
-
     activeRef.current = isActive;
 
     if (!player) return;
 
     if (!isActive) {
-
       player.pause();
 
       cancelAnimationFrame(rafRef.current);
 
       return;
-
     }
 
     if (!isPaused) {
-
       player.play();
 
       startTracking();
-
     }
-
   }, [isActive]);
-
 
   /*
    Pause / Resume handling
   */
   useEffect(() => {
-
     pausedRef.current = isPaused;
 
     if (!player || !isActive) return;
 
     if (isPaused) {
-
       console.log("⏸ PAUSE VIDEO");
 
       player.pause();
 
       cancelAnimationFrame(rafRef.current);
-
     } else {
-
       console.log("▶ PLAY VIDEO");
 
       player.play();
 
       startTracking();
-
     }
-
   }, [isPaused]);
-
 
   /*
    Frame-accurate progress tracking
   */
   const startTracking = () => {
-
     cancelAnimationFrame(rafRef.current);
 
     const track = () => {
-
       if (!player) return;
 
       if (!activeRef.current) return;
@@ -123,11 +105,9 @@ const StoryVideoPlayer = ({
       if (pausedRef.current) return;
 
       if (!player.duration) {
-
         rafRef.current = requestAnimationFrame(track);
 
         return;
-
       }
 
       const percent = player.currentTime / player.duration;
@@ -135,31 +115,23 @@ const StoryVideoPlayer = ({
       progress.setValue(percent);
 
       if (percent >= 0.99) {
-
         onEnd();
 
         return;
-
       }
 
       rafRef.current = requestAnimationFrame(track);
-
     };
 
     rafRef.current = requestAnimationFrame(track);
-
   };
-
 
   /*
    Cleanup
   */
   useEffect(() => {
-
     return () => cancelAnimationFrame(rafRef.current);
-
   }, []);
-
 
   return (
     <VideoView
@@ -169,17 +141,24 @@ const StoryVideoPlayer = ({
       contentFit="contain"
     />
   );
-
 };
 
 export default function story() {
-
-  const { addStory, fetchMyStories, fetchVisibleStories, myStories, viewStory, visibleStories, deleteStory, loading } = useStory();
+  const {
+    addStory,
+    fetchMyStories,
+    fetchVisibleStories,
+    myStories,
+    viewStory,
+    visibleStories,
+    deleteStory,
+    loading,
+  } = useStory();
 
   const { user } = useAuth();
 
   const [pickerVisible, setPickerVisible] = useState(false);
-  const [captionVisible, setCaptionVisible] = useState(false)
+  const [captionVisible, setCaptionVisible] = useState(false);
   const [selectedMedia, setSelectedMedia] = useState([]);
   const [caption, setCaption] = useState("");
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -196,9 +175,7 @@ export default function story() {
   const [isPaused, setIsPaused] = useState(false);
 
   const StoryMedia = ({ item }) => {
-
     if (item.type === "video") {
-
       const player = useVideoPlayer(item.uri);
 
       return (
@@ -220,13 +197,11 @@ export default function story() {
     );
   };
 
-
   const progress = useRef(new Animated.Value(0)).current;
 
   const progressAnim = useRef(null);
 
   const pauseStoryProgress = () => {
-
     const story = viewerStories[currentIndex];
 
     if (!story) return;
@@ -235,11 +210,9 @@ export default function story() {
     if (story.media?.format === "video") return;
 
     progressAnim.current?.stop();
-
   };
 
   const resumeStoryProgress = () => {
-
     const story = viewerStories[currentIndex];
 
     if (!story) return;
@@ -248,7 +221,6 @@ export default function story() {
     if (story.media?.format === "video") return;
 
     progress.stopAnimation((currentValue) => {
-
       const remaining = (1 - currentValue) * 5000;
 
       progressAnim.current = Animated.timing(progress, {
@@ -260,22 +232,18 @@ export default function story() {
       progressAnim.current.start(({ finished }) => {
         if (finished) goToNextStory();
       });
-
     });
-
   };
 
   const flatListRef = useRef();
 
   useEffect(() => {
-
     if (!viewerVisible) return;
 
     flatListRef.current?.scrollToIndex({
       index: currentIndex,
-      animated: false   // IMPORTANT: false prevents animation conflict
+      animated: false, // IMPORTANT: false prevents animation conflict
     });
-
   }, [currentIndex, viewerVisible]);
 
   useEffect(() => {
@@ -286,9 +254,7 @@ export default function story() {
     }
   }, [viewersVisible]);
 
-
   const openMediaPicker = async () => {
-
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
 
     if (!permission.granted) {
@@ -297,13 +263,12 @@ export default function story() {
     }
 
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images', 'videos'],
+      mediaTypes: ["images", "videos"],
       allowsMultipleSelection: true,
       quality: 1,
     });
 
     if (!result.canceled) {
-
       setSelectedMedia(result.assets);
 
       setPickerVisible(false);
@@ -314,7 +279,6 @@ export default function story() {
 
   useFocusEffect(
     useCallback(() => {
-
       let isActive = true;
 
       if (isActive) {
@@ -325,23 +289,14 @@ export default function story() {
       return () => {
         isActive = false;
       };
-
-    }, [])
+    }, []),
   );
 
   const hasMyStory = myStories && myStories.length > 0;
 
-
   const AnimatedPath = Animated.createAnimatedComponent(Path);
 
-  const CurvyRing = ({
-    uri,
-    seen,
-    isMyStatus,
-    hasStory,
-    loading
-  }) => {
-
+  const CurvyRing = ({ uri, seen, isMyStatus, hasStory, loading }) => {
     const size = 90;
     const center = size / 2;
     const baseRadius = 36;
@@ -355,9 +310,7 @@ export default function story() {
     const circumference = 2 * Math.PI * (baseRadius + waveAmplitude);
 
     useEffect(() => {
-
       if (loading) {
-
         dashOffset.setValue(0);
 
         Animated.loop(
@@ -365,25 +318,19 @@ export default function story() {
             toValue: -circumference, // NEGATIVE = CLOCKWISE
             duration: 1400,
             easing: Easing.linear,
-            useNativeDriver: false
-          })
+            useNativeDriver: false,
+          }),
         ).start();
-
       } else {
-
         dashOffset.stopAnimation();
         dashOffset.setValue(0);
-
       }
-
     }, [loading]);
 
     const createWavyCircle = () => {
-
       let path = "";
 
       for (let i = 0; i <= 360; i++) {
-
         const angle = (i * Math.PI * 2) / 360;
 
         const wave = Math.sin(angle * waveCount) * waveAmplitude;
@@ -395,40 +342,34 @@ export default function story() {
 
         if (i === 0) path += `M ${x} ${y}`;
         else path += ` L ${x} ${y}`;
-
       }
 
       return path + " Z";
-
     };
 
     // RESTORED YOUR ORIGINAL LOGIC
-    const strokeColor =
-      loading
-        ? "#2563EB"
-        : isMyStatus
-          ? hasStory
-            ? "#2563EB"
-            : "#E5E7EB"
-          : seen
-            ? "#E5E7EB"
-            : "#2563EB";
+    const strokeColor = loading
+      ? "#2563EB"
+      : isMyStatus
+        ? hasStory
+          ? "#2563EB"
+          : "#E5E7EB"
+        : seen
+          ? "#E5E7EB"
+          : "#2563EB";
 
     const grayColor = "#E5E7EB";
 
     return (
-
       <View
         style={{
           width: size,
           height: size,
           justifyContent: "center",
-          alignItems: "center"
+          alignItems: "center",
         }}
       >
-
         <Svg width={size} height={size}>
-
           {/* BASE TRACK */}
           <Path
             d={createWavyCircle()}
@@ -459,7 +400,6 @@ export default function story() {
               strokeWidth={strokeWidth}
             />
           )}
-
         </Svg>
 
         <Image
@@ -468,18 +408,14 @@ export default function story() {
             position: "absolute",
             width: 50,
             height: 50,
-            borderRadius: 35
+            borderRadius: 35,
           }}
         />
-
       </View>
-
     );
-
   };
 
   const uploadStory = async ({ type = "media" } = {}) => {
-
     try {
       // TEXT STORY
 
@@ -487,35 +423,31 @@ export default function story() {
       setTextStoryVisible(false);
 
       if (type === "text") {
-
         await addStory({
           type: "text",
           caption: textStory,
           textStyle: {
             backgroundColor: bgColor,
             textColor: textColor,
-            font: "default"
+            font: "default",
           },
-          privacy: "public"
+          privacy: "public",
         });
         await fetchMyStories();
         await fetchVisibleStories();
-
       }
 
       //MEDIA STORY
 
       if (type === "media") {
-
         await addStory({
           type: "media",
           mediaFiles: selectedMedia,
           caption: caption,
-          privacy: "public"
+          privacy: "public",
         });
         await fetchMyStories();
         await fetchVisibleStories();
-
       }
 
       //RESET STATE
@@ -528,40 +460,27 @@ export default function story() {
       setTextStory("");
 
       console.log("✅ Story uploaded successfully");
-
-    }
-    catch (error) {
-
+    } catch (error) {
       console.log("❌ Upload error:", error);
-
     }
-
   };
 
   const handleMyStatusPress = () => {
-
     if (myStories && myStories.length > 0) {
-
       // open story viewer
       setViewerStories([...myStories].reverse());
       setViewerUser(user);
       setCurrentIndex(0);
       setViewerVisible(true);
-
     } else {
-
       // open add story modal
       setPickerVisible(true);
-
     }
-
   };
 
   const goToNextStory = () => {
-
     if (currentIndex < viewerStories.length - 1) {
-
-      setCurrentIndex(prev => {
+      setCurrentIndex((prev) => {
         const next = prev + 1;
 
         if (next >= viewerStories.length) {
@@ -571,17 +490,12 @@ export default function story() {
 
         return next;
       });
-
     } else {
-
       setViewerVisible(false);
-
     }
-
   };
 
   useEffect(() => {
-
     if (!viewerVisible) return;
     if (!viewerStories.length) return;
 
@@ -595,7 +509,6 @@ export default function story() {
     if (story.media?.format === "video") return;
 
     const timer = setTimeout(() => {
-
       progressAnim.current = Animated.timing(progress, {
         toValue: 1,
         duration: 5000,
@@ -605,25 +518,18 @@ export default function story() {
       progressAnim.current.start(({ finished }) => {
         if (finished) goToNextStory();
       });
-
     }, 100);
 
     return () => clearTimeout(timer);
-
   }, [currentIndex, viewerStories, viewerVisible]);
   useEffect(() => {
-
     if (viewerVisible) {
-
       progressAnim.current?.stop();
       progress.setValue(0);
-
     }
-
   }, [viewerVisible]);
 
   useEffect(() => {
-
     if (!viewerVisible) return;
 
     const currentStory = viewerStories[currentIndex];
@@ -631,52 +537,48 @@ export default function story() {
     if (!currentStory) return;
 
     viewStory(currentStory._id);
-
   }, [viewerVisible, currentIndex]);
 
   useEffect(() => {
-
     // when viewer closes, refresh visible stories
     if (!viewerVisible) {
-
       fetchVisibleStories();
-
     }
-
   }, [viewerVisible]);
 
-
   // Split stories into Recent and Viewed
-  const recentStories = visibleStories.filter(
-    item => item.unseenCount > 0
-  );
+  const recentStories = visibleStories.filter((item) => item.unseenCount > 0);
 
-  const viewedStories = visibleStories.filter(
-    item => item.unseenCount === 0
-  );
+  const viewedStories = visibleStories.filter((item) => item.unseenCount === 0);
+
+  const { theme } = useTheme();
+  const styles = createStyles(theme);
 
   return (
     <>
-      <SafeAreaView style={{ flex: 1, backgroundColor: "#F7F8FA"  }}>
-        <AppStatusBar backgroundColor="#fff" style="dark" />
+      <SafeAreaView
+        style={{ flex: 1, backgroundColor: theme.colors.background }}
+      >
+        <AppStatusBar backgroundColor={theme.colors.background} style="dark" />
         <View style={styles.container}>
           {/* My Status */}
-          <TouchableOpacity style={styles.statusItem} onPress={handleMyStatusPress}>
+          <TouchableOpacity
+            style={styles.statusItem}
+            onPress={handleMyStatusPress}
+          >
             <View>
               <CurvyRing
-                uri={user?.profileImage?.url || "https://i.pravatar.cc/150?img=5"}
+                uri={
+                  user?.profileImage?.url || "https://i.pravatar.cc/150?img=5"
+                }
                 isMyStatus={true}
                 hasStory={hasMyStory}
                 loading={loading}
               />
 
-              <TouchableOpacity
-                style={styles.addIcon}
-
-              >
+              <TouchableOpacity style={styles.addIcon}>
                 <Feather name="plus" size={14} color="#fff" />
               </TouchableOpacity>
-
             </View>
 
             <View style={{ marginLeft: 12 }}>
@@ -688,121 +590,102 @@ export default function story() {
           </TouchableOpacity>
 
           {/* Recent Updates */}
-          <Text style={styles.sectionTitle}>Recent Updates</Text>
+          {recentStories.length > 0 && (
+            <>
+              <Text style={styles.sectionTitle}>Recent Updates</Text>
 
-          <FlatList
-            data={recentStories}
-            keyExtractor={(item) => item.userId.toString()}
-            renderItem={({ item }) => {
+              <FlatList
+                data={recentStories}
+                keyExtractor={(item) => item.userId.toString()}
+                renderItem={({ item }) => {
+                  const isSeen = item.unseenCount === 0;
 
-              console.log("VISIBLE STORY ITEM:", item);
+                  return (
+                    <TouchableOpacity
+                      style={styles.statusItem}
+                      onPress={() => {
+                        setViewerStories(item.stories);
 
-              const isSeen = item.unseenCount === 0;
+                        setViewerUser({
+                          name: item.name,
+                          profileImage: item.profileImage?.url,
+                        });
 
-              return (
-                <TouchableOpacity
-                  style={styles.statusItem}
-                  onPress={() => {
+                        setCurrentIndex(0);
+                        setViewerVisible(true);
+                      }}
+                    >
+                      <CurvyRing uri={item.profileImage?.url} seen={isSeen} />
 
-                    setViewerStories(item.stories);
+                      <View style={{ marginLeft: 12 }}>
+                        <Text style={styles.name}>{item.name}</Text>
 
-                    setViewerUser({
-                      name: item.name,
-                      profileImage: item.profileImage?.url
-                    });
-
-                    setCurrentIndex(0);
-                    setViewerVisible(true);
-
-                  }}
-                >
-                  <CurvyRing
-                    uri={item.profileImage?.url}
-                    seen={isSeen}
-                  />
-
-                  <View style={{ marginLeft: 12 }}>
-                    <Text style={styles.name}>{item.name}</Text>
-
-                    <Text style={styles.time}>
-                      {item.unseenCount > 0
-                        ? `${item.unseenCount} new`
-                        : "Viewed"}
-                    </Text>
-
-                  </View>
-
-                </TouchableOpacity>
-              );
-            }}
-          />
+                        <Text style={styles.time}>
+                          {item.unseenCount > 0
+                            ? `${item.unseenCount} new`
+                            : "Viewed"}
+                        </Text>
+                      </View>
+                    </TouchableOpacity>
+                  );
+                }}
+              />
+            </>
+          )}
 
           {/* Viewed Updates */}
-          <Text style={styles.sectionTitle}>Viewed Updates</Text>
-          <FlatList
-            data={viewedStories}
-            keyExtractor={(item) => item.userId.toString()}
-            renderItem={({ item }) => {
+          {viewedStories.length > 0 && (
+            <>
+              <Text style={styles.sectionTitle}>Viewed Updates</Text>
 
-              return (
-                <TouchableOpacity
-                  style={styles.statusItem}
-                  onPress={() => {
+              <FlatList
+                data={viewedStories}
+                keyExtractor={(item) => item.userId.toString()}
+                renderItem={({ item }) => (
+                  <TouchableOpacity
+                    style={styles.statusItem}
+                    onPress={() => {
+                      setViewerStories(item.stories);
 
-                    setViewerStories(item.stories);
+                      setViewerUser({
+                        name: item.name,
+                        profileImage: item.profileImage?.url,
+                      });
 
-                    setViewerUser({
-                      name: item.name,
-                      profileImage: item.profileImage?.url
-                    });
+                      setCurrentIndex(0);
+                      setViewerVisible(true);
+                    }}
+                  >
+                    <CurvyRing uri={item.profileImage?.url} seen={true} />
 
-                    setCurrentIndex(0);
-                    setViewerVisible(true);
-
-                  }}
-                >
-                  <CurvyRing
-                    uri={item.profileImage?.url}
-                    seen={true}
-                  />
-
-                  <View style={{ marginLeft: 12 }}>
-                    <Text style={styles.name}>{item.name}</Text>
-                    <Text style={styles.time}>Viewed</Text>
-                  </View>
-
-                </TouchableOpacity>
-              );
-            }}
-          />
+                    <View style={{ marginLeft: 12 }}>
+                      <Text style={styles.name}>{item.name}</Text>
+                      <Text style={styles.time}>Viewed</Text>
+                    </View>
+                  </TouchableOpacity>
+                )}
+              />
+            </>
+          )}
         </View>
-
-
       </SafeAreaView>
 
       <Modal visible={viewerVisible} animationType="fade">
-
         <SafeAreaView style={{ flex: 1, backgroundColor: "black" }}>
-
           <View style={styles.progressContainer}>
-
             {viewerStories.map((_, i) => {
-
               let flexValue;
 
               if (i < currentIndex) {
                 flexValue = 1;
-              }
-              else if (i === currentIndex) {
+              } else if (i === currentIndex) {
                 flexValue = progress;
-              }
-              else {
+              } else {
                 flexValue = 0;
               }
 
               return (
                 <View key={i} style={styles.progressBarBackground}>
-
                   <Animated.View
                     style={[
                       styles.progressBarFill,
@@ -812,37 +695,35 @@ export default function story() {
                             ? "100%"
                             : i === currentIndex
                               ? progress.interpolate({
-                                inputRange: [0, 1],
-                                outputRange: ["0%", "100%"]
-                              })
-                              : "0%"
-                      }
+                                  inputRange: [0, 1],
+                                  outputRange: ["0%", "100%"],
+                                })
+                              : "0%",
+                      },
                     ]}
                   />
-
-
                 </View>
               );
-
             })}
-
           </View>
 
           {/* HEADER */}
-          <View style={{
-            flexDirection: "row",
-            alignItems: "center",
-            justifyContent: "space-between",
-            paddingHorizontal: 15,
-            paddingVertical: 20,
-          }}>
-
-            {/* LEFT SIDE */}
-            <View style={{
+          <View
+            style={{
               flexDirection: "row",
-              alignItems: "center"
-            }}>
-
+              alignItems: "center",
+              justifyContent: "space-between",
+              paddingHorizontal: 15,
+              paddingVertical: 20,
+            }}
+          >
+            {/* LEFT SIDE */}
+            <View
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+              }}
+            >
               {/* CLOSE */}
               <TouchableOpacity onPress={() => setViewerVisible(false)}>
                 <Feather name="x" size={26} color="white" />
@@ -854,38 +735,36 @@ export default function story() {
                   uri:
                     viewerUser?.profileImage?.url ??
                     viewerUser?.profileImage ??
-                    "https://i.pravatar.cc/150?img=5"
+                    "https://i.pravatar.cc/150?img=5",
                 }}
                 style={{
                   width: 36,
                   height: 36,
                   borderRadius: 18,
-                  marginLeft: 12
+                  marginLeft: 12,
                 }}
               />
 
               {/* NAME */}
-              <Text style={{
-                color: "white",
-                marginLeft: 10,
-                fontSize: 16,
-                fontWeight: "bold"
-              }}>
+              <Text
+                style={{
+                  color: "white",
+                  marginLeft: 10,
+                  fontSize: 16,
+                  fontWeight: "bold",
+                }}
+              >
                 {viewerUser?.name}
               </Text>
-
             </View>
-
 
             {/* RIGHT SIDE */}
             <View style={{ flexDirection: "row", alignItems: "center" }}>
-
               {/* DELETE */}
               {viewerStories[currentIndex]?.userId === user?._id && (
                 <TouchableOpacity
                   style={{ marginRight: 18 }}
                   onPress={() => {
-
                     const storyId = viewerStories[currentIndex]._id;
 
                     Alert.alert(
@@ -894,38 +773,31 @@ export default function story() {
                       [
                         {
                           text: "Cancel",
-                          style: "cancel"
+                          style: "cancel",
                         },
                         {
                           text: "Delete",
                           style: "destructive",
                           onPress: async () => {
-
                             await deleteStory(storyId);
 
                             const updatedStories = viewerStories.filter(
-                              story => story._id !== storyId
+                              (story) => story._id !== storyId,
                             );
 
                             if (updatedStories.length === 0) {
-
                               setViewerVisible(false);
-
                             } else {
-
                               setViewerStories(updatedStories);
 
                               if (currentIndex >= updatedStories.length) {
                                 setCurrentIndex(updatedStories.length - 1);
                               }
-
                             }
-
-                          }
-                        }
-                      ]
+                          },
+                        },
+                      ],
                     );
-
                   }}
                 >
                   <Feather name="trash-2" size={24} color="red" />
@@ -933,18 +805,17 @@ export default function story() {
               )}
 
               {/* ADD */}
-              <TouchableOpacity onPress={() => {
-                progressAnim.current?.stop();
-                setViewerVisible(false);
-                setPickerVisible(true);
-              }}>
+              <TouchableOpacity
+                onPress={() => {
+                  progressAnim.current?.stop();
+                  setViewerVisible(false);
+                  setPickerVisible(true);
+                }}
+              >
                 <Feather name="plus" size={26} color="white" />
               </TouchableOpacity>
-
             </View>
-
           </View>
-
 
           {/* STORY LIST */}
           <FlatList
@@ -954,18 +825,14 @@ export default function story() {
             pagingEnabled
             keyExtractor={(item) => item._id}
             onMomentumScrollEnd={(e) => {
-              const index = Math.round(
-                e.nativeEvent.contentOffset.x / width
-              );
+              const index = Math.round(e.nativeEvent.contentOffset.x / width);
               setCurrentIndex(index);
             }}
             initialNumToRender={1}
             maxToRenderPerBatch={1}
             windowSize={2}
             removeClippedSubviews
-
             renderItem={({ item, index }) => {
-
               const isImage = item.media?.format === "image";
               const isVideo = item.media?.format === "video";
               const isText = item.media?.format === "text";
@@ -974,56 +841,44 @@ export default function story() {
               // 120 = header + username + progress bars safe space
 
               return (
-
                 <View
                   style={{
                     width,
                     height,
-                    backgroundColor: "black"
+                    backgroundColor: "black",
                   }}
-
                   onStartShouldSetResponder={() => true}
-
                   onResponderGrant={() => {
-
                     console.log("👆 HOLD START");
 
                     setIsPaused(true);
 
                     pauseStoryProgress();
-
                   }}
-
                   onResponderRelease={() => {
-
                     console.log("👆 HOLD END");
 
                     setIsPaused(false);
 
                     resumeStoryProgress();
-
                   }}
-
                   onResponderTerminate={() => {
-
                     console.log("👆 HOLD TERMINATED");
 
                     setIsPaused(false);
 
                     resumeStoryProgress();
-
                   }}
-
                 >
-
                   {/* MEDIA */}
-                  <View style={{
-                    width,
-                    height: mediaHeight,
-                    justifyContent: "flex-start",
-                    alignItems: "center"
-                  }}>
-
+                  <View
+                    style={{
+                      width,
+                      height: mediaHeight,
+                      justifyContent: "flex-start",
+                      alignItems: "center",
+                    }}
+                  >
                     {isImage && (
                       <Image
                         source={{ uri: item.media.url }}
@@ -1044,88 +899,87 @@ export default function story() {
                     )}
 
                     {isText && (
-                      <View style={{
-                        width,
-                        height: mediaHeight,
-                        justifyContent: "center",
-                        alignItems: "center",
-                        backgroundColor:
-                          item.textStyle?.backgroundColor || "#000"
-                      }}>
-                        <Text style={{
-                          color: item.textStyle?.textColor || "#fff",
-                          fontSize: 32,
-                          fontWeight: "bold"
-                        }}>
+                      <View
+                        style={{
+                          width,
+                          height: mediaHeight,
+                          justifyContent: "center",
+                          alignItems: "center",
+                          backgroundColor:
+                            item.textStyle?.backgroundColor || "#000",
+                        }}
+                      >
+                        <Text
+                          style={{
+                            color: item.textStyle?.textColor || "#fff",
+                            fontSize: 32,
+                            fontWeight: "bold",
+                          }}
+                        >
                           {item.caption}
                         </Text>
                       </View>
                     )}
-
                   </View>
-
 
                   {/* CAPTION */}
                   {(isImage || isVideo) && item.caption?.trim() !== "" && (
-                    <View style={{
-                      height: CAPTION_HEIGHT,
-                      justifyContent: "center",
-                      alignItems: "center",
-                      paddingHorizontal: 20,
-                      backgroundColor: "rgba(0,0,0,0.5)"
-                    }}>
-                      <Text style={{
-                        color: "white",
-                        fontSize: 18,
-                        textAlign: "center"
-                      }}>
+                    <View
+                      style={{
+                        height: CAPTION_HEIGHT,
+                        justifyContent: "center",
+                        alignItems: "center",
+                        paddingHorizontal: 20,
+                        backgroundColor: "rgba(0,0,0,0.5)",
+                      }}
+                    >
+                      <Text
+                        style={{
+                          color: "white",
+                          fontSize: 18,
+                          textAlign: "center",
+                        }}
+                      >
                         {item.caption}
                       </Text>
                     </View>
                   )}
 
                   {/* BOTTOM BAR */}
-                  {(
-                    item.userId?._id
-                      ? item.userId._id === user._id
-                      : item.userId === user._id
-                  ) && (
+                  {(item.userId?._id
+                    ? item.userId._id === user._id
+                    : item.userId === user._id) && (
+                    <TouchableOpacity
+                      onPress={() => {
+                        pauseStoryProgress();
+                        setSelectedViewers(item.viewers || []);
+                        setViewersVisible(true);
+                      }}
+                      style={{
+                        height: 60,
+                        flexDirection: "row",
+                        alignItems: "center",
+                        justifyContent: "center",
+                      }}
+                    >
+                      <Feather name="eye" size={22} color="white" />
 
-                      <TouchableOpacity
-                        onPress={() => {
-                          pauseStoryProgress();
-                          setSelectedViewers(item.viewers || []);
-                          setViewersVisible(true);
-                        }}
+                      <Text
                         style={{
-                          height: 60,
-                          flexDirection: "row",
-                          alignItems: "center",
-                          justifyContent: "center"
-                        }}
-                      >
-
-                        <Feather name="eye" size={22} color="white" />
-
-                        <Text style={{
                           color: "white",
                           marginLeft: 8,
-                          fontSize: 16
-                        }}>
-                          {item.viewers?.length ?? 0}
-                        </Text>
-
-                      </TouchableOpacity>
-
-                    )}
+                          fontSize: 16,
+                        }}
+                      >
+                        {item.viewers?.length ?? 0}
+                      </Text>
+                    </TouchableOpacity>
+                  )}
                 </View>
               );
             }}
-
           />
-
         </SafeAreaView>
-
       </Modal>
 
       <Modal
@@ -1133,142 +987,139 @@ export default function story() {
         animationType="slide"
         transparent={true}
         onRequestClose={() => {
-
           setViewersVisible(false);
 
           resumeStoryProgress();
-
         }}
       >
-
-        <View style={{
-          flex: 1,
-          justifyContent: "flex-end",
-          backgroundColor: "rgba(0,0,0,0.5)"
-        }}>
-
-          <View style={{
-            height: height * 0.5,
-            backgroundColor: "#111",
-            borderTopLeftRadius: 20,
-            borderTopRightRadius: 20,
-            paddingTop: 10
-          }}>
-
+        <View
+          style={{
+            flex: 1,
+            justifyContent: "flex-end",
+            backgroundColor: "rgba(0,0,0,0.5)",
+          }}
+        >
+          <View
+            style={{
+              height: height * 0.5,
+              backgroundColor: "#111",
+              borderTopLeftRadius: 20,
+              borderTopRightRadius: 20,
+              paddingTop: 10,
+            }}
+          >
             {/* HANDLE */}
-            <View style={{
-              width: 40,
-              height: 5,
-              backgroundColor: "#555",
-              borderRadius: 3,
-              alignSelf: "center",
-              marginBottom: 10
-            }} />
-
+            <View
+              style={{
+                width: 40,
+                height: 5,
+                backgroundColor: "#555",
+                borderRadius: 3,
+                alignSelf: "center",
+                marginBottom: 10,
+              }}
+            />
 
             {/* HEADER */}
-            <View style={{
-              flexDirection: "row",
-              justifyContent: "space-between",
-              paddingHorizontal: 20,
-              marginBottom: 10
-            }}>
-
-              <Text style={{
-                color: "white",
-                fontSize: 18,
-                fontWeight: "bold"
-              }}>
+            <View
+              style={{
+                flexDirection: "row",
+                justifyContent: "space-between",
+                paddingHorizontal: 20,
+                marginBottom: 10,
+              }}
+            >
+              <Text
+                style={{
+                  color: "white",
+                  fontSize: 18,
+                  fontWeight: "bold",
+                }}
+              >
                 Viewed by
               </Text>
 
-              <TouchableOpacity onPress={() => {
-                setViewersVisible(false);
-                resumeStoryProgress();   // ✅ resume here
-              }}
+              <TouchableOpacity
+                onPress={() => {
+                  setViewersVisible(false);
+                  resumeStoryProgress(); // ✅ resume here
+                }}
               >
                 <Feather name="x" size={24} color="white" />
               </TouchableOpacity>
-
             </View>
-
 
             {/* VIEWERS LIST */}
             <FlatList
               data={selectedViewers}
               keyExtractor={(item) => item._id}
-
-
               renderItem={({ item }) => {
-                console.log("Item: ", item)
+                console.log("Item: ", item);
                 return (
-                  <View style={{
-                    flexDirection: "row",
-                    alignItems: "center",
-                    paddingHorizontal: 20,
-                    paddingVertical: 12
-                  }}>
-
+                  <View
+                    style={{
+                      flexDirection: "row",
+                      alignItems: "center",
+                      paddingHorizontal: 20,
+                      paddingVertical: 12,
+                    }}
+                  >
                     {/* PROFILE IMAGE */}
                     <Image
                       source={{
-                        uri: item.userId?.profileImage?.url ||
-                          "https://i.pravatar.cc/150"
+                        uri:
+                          item.userId?.profileImage?.url ||
+                          "https://i.pravatar.cc/150",
                       }}
                       style={{
                         width: 45,
                         height: 45,
-                        borderRadius: 22
+                        borderRadius: 22,
                       }}
                     />
 
                     {/* NAME + TIME */}
                     <View style={{ marginLeft: 12 }}>
-
-                      <Text style={{
-                        color: "white",
-                        fontSize: 16
-                      }}>
+                      <Text
+                        style={{
+                          color: "white",
+                          fontSize: 16,
+                        }}
+                      >
                         {item.userId?.name || "Unknown"}
                       </Text>
 
-                      <Text style={{
-                        color: "#aaa",
-                        fontSize: 13,
-                        marginTop: 2
-                      }}>
+                      <Text
+                        style={{
+                          color: "#aaa",
+                          fontSize: 13,
+                          marginTop: 2,
+                        }}
+                      >
                         {new Date(item.viewedAt).toLocaleString()}
                       </Text>
-
                     </View>
-
                   </View>
-                )
+                );
               }}
-
               ListEmptyComponent={
-                <Text style={{
-                  color: "#aaa",
-                  textAlign: "center",
-                  marginTop: 20
-                }}>
+                <Text
+                  style={{
+                    color: "#aaa",
+                    textAlign: "center",
+                    marginTop: 20,
+                  }}
+                >
                   No views yet
                 </Text>
               }
-
             />
-
           </View>
-
         </View>
-
       </Modal>
 
-
       <Modal visible={pickerVisible} animationType="slide">
-
         <SafeAreaView style={styles.pickerContainer}>
-
           <View style={styles.pickerHeader}>
             <TouchableOpacity onPress={() => setPickerVisible(false)}>
               <Text style={styles.cancelText}>Cancel</Text>
@@ -1299,28 +1150,22 @@ export default function story() {
             <Feather name="type" size={24} color="#fff" />
             <Text style={styles.galleryText}>Text Story</Text>
           </TouchableOpacity>
-
-
         </SafeAreaView>
-
       </Modal>
 
       <Modal visible={textStoryVisible} animationType="slide">
-
-        <SafeAreaView style={[styles.textContainer, { backgroundColor: bgColor }]}>
-
+        <SafeAreaView
+          style={[styles.textContainer, { backgroundColor: bgColor }]}
+        >
           {/* HEADER */}
           <View style={styles.textHeader}>
-
             {/* CLOSE */}
             <TouchableOpacity onPress={() => setTextStoryVisible(false)}>
               <Feather name="x" size={28} color="white" />
             </TouchableOpacity>
 
-
             {/* RIGHT ACTIONS */}
             <View style={styles.headerRight}>
-
               {/* COLOR PICKER BUTTON */}
               <TouchableOpacity
                 onPress={() => setShowColorPicker(!showColorPicker)}
@@ -1328,7 +1173,6 @@ export default function story() {
               >
                 <Feather name="droplet" size={22} color="white" />
               </TouchableOpacity>
-
 
               {/* SEND BUTTON (ONLY WHEN TEXT EXISTS) */}
               {textStory.trim().length > 0 && (
@@ -1339,16 +1183,11 @@ export default function story() {
                   <Feather name="send" size={24} color="white" />
                 </TouchableOpacity>
               )}
-
             </View>
-
           </View>
-
-
 
           {/* PREVIEW */}
           <View style={styles.textPreview}>
-
             <TextInput
               value={textStory}
               onChangeText={setTextStory}
@@ -1359,19 +1198,15 @@ export default function story() {
               style={[
                 styles.textInput,
                 {
-                  color: textColor
-                }
+                  color: textColor,
+                },
               ]}
             />
-
           </View>
-
 
           {/* COLOR PICKER */}
           {showColorPicker && (
-
             <View style={styles.colorPopup}>
-
               {[
                 "#2563EB",
                 "#10B981",
@@ -1379,9 +1214,8 @@ export default function story() {
                 "#F59E0B",
                 "#8B5CF6",
                 "#EC4899",
-                "#000000"
-              ].map(color => (
-
+                "#000000",
+              ].map((color) => (
                 <TouchableOpacity
                   key={color}
                   onPress={() => {
@@ -1390,30 +1224,19 @@ export default function story() {
                   style={[
                     styles.colorCircle,
                     { backgroundColor: color },
-                    bgColor === color && styles.activeColor
+                    bgColor === color && styles.activeColor,
                   ]}
                 />
-
               ))}
-
             </View>
-
           )}
-
-
         </SafeAreaView>
-
       </Modal>
 
-
-
       <Modal visible={captionVisible} animationType="slide">
-
         <SafeAreaView style={styles.previewContainer}>
-
           {/* Header */}
           <View style={styles.previewHeader}>
-
             <TouchableOpacity onPress={() => setCaptionVisible(false)}>
               <Feather name="x" size={28} color="white" />
             </TouchableOpacity>
@@ -1421,9 +1244,7 @@ export default function story() {
             <TouchableOpacity onPress={() => uploadStory({ type: "media" })}>
               <Feather name="send" size={24} color="white" />
             </TouchableOpacity>
-
           </View>
-
 
           {/* Media Preview */}
           <FlatList
@@ -1432,28 +1253,19 @@ export default function story() {
             pagingEnabled
             keyExtractor={(item, index) => index.toString()}
             onMomentumScrollEnd={(e) => {
-
-              const index = Math.round(
-                e.nativeEvent.contentOffset.x / width
-              );
+              const index = Math.round(e.nativeEvent.contentOffset.x / width);
 
               setCurrentIndex(index);
-
             }}
             renderItem={({ item }) => (
-
               <View style={styles.mediaWrapper}>
                 <StoryMedia item={item} />
               </View>
-
             )}
           />
 
-
-
           {/* Caption Input */}
           <View style={styles.captionContainer}>
-
             <TextInput
               placeholder="Write a caption..."
               placeholderTextColor="#ccc"
@@ -1461,227 +1273,221 @@ export default function story() {
               onChangeText={setCaption}
               style={styles.captionInput}
             />
-
           </View>
-
         </SafeAreaView>
-
       </Modal>
-
     </>
-  )
+  );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#F9FAFB",
-    paddingHorizontal: 15,
-    paddingTop: 20,
-  },
-  sectionTitle: {
-    color: "#aaa",
-    marginTop: 20,
-    marginBottom: 8,
-    fontWeight: "600",
-  },
-  statusItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: 10,
-  },
-  avatar: {
-    width: 55,
-    height: 55,
-    borderRadius: 30,
-  },
-  unseenRing: {
-    position: "absolute",
-    width: 65,
-    height: 65,
-    borderRadius: 35,
-    borderWidth: 2,
-    borderColor: "#00E5FF",
-    top: -5,
-    left: -5,
-  },
-  addIcon: {
-    position: "absolute",
-    bottom: -2,
-    right: -2,
-    backgroundColor: "#6C63FF",
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  name: {
-    color: "#111827",
-    fontSize: 16,
-    fontWeight: "600",
-  },
-  time: {
-    color: "#aaa",
-    fontSize: 13,
-    marginTop: 3,
-  },
-  pickerContainer: {
-    flex: 1,
-    backgroundColor: "#111",
-  },
+const createStyles = (theme) => {
+  return StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: theme.colors.background,
+      paddingHorizontal: 15,
+      paddingTop: 20,
+    },
+    sectionTitle: {
+      color: theme.colors.text,
+      marginTop: 20,
+      marginBottom: 8,
+      fontWeight: "600",
+    },
+    statusItem: {
+      flexDirection: "row",
+      alignItems: "center",
+      paddingVertical: 10,
+    },
+    avatar: {
+      width: 55,
+      height: 55,
+      borderRadius: 30,
+    },
+    unseenRing: {
+      position: "absolute",
+      width: 65,
+      height: 65,
+      borderRadius: 35,
+      borderWidth: 2,
+      borderColor: "#00E5FF",
+      top: -5,
+      left: -5,
+    },
+    addIcon: {
+      position: "absolute",
+      bottom: -2,
+      right: -2,
+      backgroundColor: "#6C63FF",
+      width: 22,
+      height: 22,
+      borderRadius: 11,
+      justifyContent: "center",
+      alignItems: "center",
+    },
+    name: {
+      color: theme.colors.text,
+      fontSize: 16,
+      fontWeight: "600",
+    },
+    time: {
+      color: theme.colors.secondaryText,
+      fontSize: 13,
+      marginTop: 3,
+    },
+    pickerContainer: {
+      flex: 1,
+      backgroundColor: theme.colors.background,
+    },
 
-  pickerHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    padding: 16,
-  },
+    pickerHeader: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "center",
+      padding: 16,
+    },
 
-  headerTitle: {
-    color: "white",
-    fontSize: 18,
-    fontWeight: "600",
-  },
+    headerTitle: {
+      color: "white",
+      fontSize: 18,
+      fontWeight: "600",
+    },
 
-  cancelText: {
-    color: "#3B82F6",
-    fontSize: 16,
-  },
+    cancelText: {
+      color: "#3B82F6",
+      fontSize: 16,
+    },
 
-  galleryButton: {
-    backgroundColor: "#2563EB",
-    padding: 18,
-    margin: 20,
-    borderRadius: 12,
-    alignItems: "center",
-    flexDirection: "row",
-    justifyContent: "center",
-  },
+    galleryButton: {
+      backgroundColor: "#2563EB",
+      padding: 18,
+      margin: 20,
+      borderRadius: 12,
+      alignItems: "center",
+      flexDirection: "row",
+      justifyContent: "center",
+    },
 
-  galleryText: {
-    color: "white",
-    marginLeft: 10,
-    fontSize: 16,
-  },
+    galleryText: {
+      color: "white",
+      marginLeft: 10,
+      fontSize: 16,
+    },
 
+    previewContainer: {
+      flex: 1,
+      backgroundColor: "black",
+    },
 
-  previewContainer: {
-    flex: 1,
-    backgroundColor: "black",
-  },
+    previewHeader: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      padding: 15,
+    },
 
-  previewHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    padding: 15,
-  },
+    mediaWrapper: {
+      width,
+      height: height * 0.7,
+      justifyContent: "center",
+      alignItems: "center",
+    },
 
-  mediaWrapper: {
-    width,
-    height: height * 0.7,
-    justifyContent: "center",
-    alignItems: "center",
-  },
+    fullMedia: {
+      width: width,
+      height: height * 0.7,
+    },
 
-  fullMedia: {
-    width: width,
-    height: height * 0.7,
-  },
+    captionContainer: {
+      padding: 15,
+    },
 
-  captionContainer: {
-    padding: 15,
-  },
+    captionInput: {
+      color: "white",
+      borderBottomWidth: 1,
+      borderBottomColor: "#444",
+      fontSize: 16,
+      paddingVertical: 10,
+    },
 
-  captionInput: {
-    color: "white",
-    borderBottomWidth: 1,
-    borderBottomColor: "#444",
-    fontSize: 16,
-    paddingVertical: 10,
-  },
+    textContainer: {
+      flex: 1,
+    },
 
-  textContainer: {
-    flex: 1,
-  },
+    textHeader: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      padding: 15,
+    },
 
-  textHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    padding: 15,
-  },
+    textPreview: {
+      flex: 1,
+      justifyContent: "center",
+      alignItems: "center",
+      paddingHorizontal: 30,
+    },
 
-  textPreview: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    paddingHorizontal: 30,
-  },
+    textInput: {
+      fontSize: 32,
+      fontWeight: "bold",
+    },
 
-  textInput: {
-    fontSize: 32,
-    fontWeight: "bold",
-  },
+    colorPicker: {
+      flexDirection: "row",
+      justifyContent: "center",
+      paddingBottom: 30,
+    },
 
-  colorPicker: {
-    flexDirection: "row",
-    justifyContent: "center",
-    paddingBottom: 30,
-  },
+    colorCircle: {
+      width: 32,
+      height: 32,
+      borderRadius: 16,
+      marginVertical: 6,
+    },
 
-  colorCircle: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    marginVertical: 6,
-  },
+    activeColor: {
+      borderWidth: 2,
+      borderColor: "white",
+    },
+    headerRight: {
+      flexDirection: "row",
+      alignItems: "center",
+    },
 
-  activeColor: {
-    borderWidth: 2,
-    borderColor: "white",
-  },
-  headerRight: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
+    colorToggle: {
+      padding: 6,
+    },
 
-  colorToggle: {
-    padding: 6,
-  },
+    colorPopup: {
+      position: "absolute",
+      top: 70,
+      right: 15,
+      backgroundColor: "#1f2937",
+      padding: 10,
+      borderRadius: 12,
+      elevation: 5,
+    },
 
-  colorPopup: {
-    position: "absolute",
-    top: 70,
-    right: 15,
-    backgroundColor: "#1f2937",
-    padding: 10,
-    borderRadius: 12,
-    elevation: 5,
-  },
+    progressContainer: {
+      flexDirection: "row",
+      position: "absolute",
+      top: 10,
+      left: 10,
+      right: 10,
+      zIndex: 10,
+    },
 
-  progressContainer: {
-    flexDirection: "row",
-    position: "absolute",
-    top: 10,
-    left: 10,
-    right: 10,
-    zIndex: 10,
+    progressBarBackground: {
+      flex: 1,
+      height: 3,
+      backgroundColor: "rgba(255,255,255,0.3)",
+      marginHorizontal: 2,
+      borderRadius: 2,
+      overflow: "hidden",
+    },
 
-  },
-
-  progressBarBackground: {
-    flex: 1,
-    height: 3,
-    backgroundColor: "rgba(255,255,255,0.3)",
-    marginHorizontal: 2,
-    borderRadius: 2,
-    overflow: "hidden",
-  },
-
-  progressBarFill: {
-    height: 3,
-    backgroundColor: "#fff",
-  },
-
-
-});
+    progressBarFill: {
+      height: 3,
+      backgroundColor: "#fff",
+    },
+  });
+};

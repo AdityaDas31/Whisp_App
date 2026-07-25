@@ -24,7 +24,7 @@ export default function MediaPreviewModal({
     if (!media) return null;
 
     return (
-        <Modal visible={visible} transparent animationType="fade">
+        <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
             <StatusBar backgroundColor="black" barStyle="light-content" />
 
             <View style={styles.container}>
