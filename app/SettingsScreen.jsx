@@ -74,7 +74,7 @@ export default function SettingsScreen() {
                         <Text style={styles.optionText}>Chats</Text>
                     </TouchableOpacity>
 
-                    <TouchableOpacity style={styles.option}>
+                    <TouchableOpacity style={styles.option} onPress={() => navigation.navigate("PrivacyScreen")}>
                         <Ionicons name="lock-closed-outline" size={24} color="#0A84FF" />
                         <Text style={styles.optionText}>Privacy</Text>
                     </TouchableOpacity>

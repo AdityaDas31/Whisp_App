@@ -21,7 +21,7 @@ import { CallProvider } from "../context/CallContext";
 import { useRouter } from "expo-router";
 import * as NavigationBar from "expo-navigation-bar";
 import { Platform } from "react-native";
-
+import AppLockGate from "../components/AppLockGate";
 
 /* ------------------ INNER APP (HAS ACCESS TO AUTH) ------------------ */
 function AppNavigator() {
@@ -37,25 +37,23 @@ function AppNavigator() {
 
   // 🔔 Capture notification tap
   useEffect(() => {
-    const sub =
-      Notifications.addNotificationResponseReceivedListener((response) => {
+    const sub = Notifications.addNotificationResponseReceivedListener(
+      (response) => {
         const data = response.notification.request.content.data;
         console.log("🔔 Notification tapped:", data);
         setPendingNotification(data);
-      });
+      },
+    );
 
     return () => sub.remove();
   }, []);
 
-
   useEffect(() => {
     const requestPermission = async () => {
-
       if (Platform.OS === "android") {
         const settings = await Notifications.requestPermissionsAsync();
         console.log("Notification permission:", settings);
       }
-
     };
 
     requestPermission();
@@ -120,32 +118,51 @@ function AppNavigator() {
     setPendingNotification(null);
   }, [pendingNotification, loading, user]);
 
-
-
   return (
     <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
       <CustomThemeProvider>
-      <Stack>
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="call" options={{ headerShown: false }} />
-        <Stack.Screen name="LoginScreen" options={{ headerShown: false }} />
-        <Stack.Screen name="GetStart" options={{ headerShown: false }} />
-        <Stack.Screen name="RegisterScreen" options={{ headerShown: false }} />
-        <Stack.Screen name="ChatScreen" options={{ headerShown: false }} />
-        <Stack.Screen name="SettingsScreen" options={{ headerShown: false }} />
-        <Stack.Screen name="ProfileScreen" options={{ headerShown: false }} />
-        <Stack.Screen name="AddMemberScreen" options={{ headerShown: false }} />
-        <Stack.Screen
-          name="ChatSettingsScreen"
-          options={{ headerShown: false }}
-        />
-        <Stack.Screen
-          name="ChatScreenThemeScreen"
-          options={{ headerShown: false }}
-        />
-        <Stack.Screen name="CreateGroupScreen" options={{ headerShown: false }} />
-        <Stack.Screen name="+not-found" />
-      </Stack>
+        <AppLockGate>
+          <Stack>
+            <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+            <Stack.Screen name="call" options={{ headerShown: false }} />
+            <Stack.Screen name="LoginScreen" options={{ headerShown: false }} />
+            <Stack.Screen name="GetStart" options={{ headerShown: false }} />
+            <Stack.Screen
+              name="RegisterScreen"
+              options={{ headerShown: false }}
+            />
+            <Stack.Screen name="ChatScreen" options={{ headerShown: false }} />
+            <Stack.Screen
+              name="SettingsScreen"
+              options={{ headerShown: false }}
+            />
+            <Stack.Screen
+              name="ProfileScreen"
+              options={{ headerShown: false }}
+            />
+            <Stack.Screen
+              name="AddMemberScreen"
+              options={{ headerShown: false }}
+            />
+            <Stack.Screen
+              name="ChatSettingsScreen"
+              options={{ headerShown: false }}
+            />
+            <Stack.Screen
+              name="ChatScreenThemeScreen"
+              options={{ headerShown: false }}
+            />
+            <Stack.Screen
+              name="CreateGroupScreen"
+              options={{ headerShown: false }}
+            />
+            <Stack.Screen
+              name="PrivacyScreen"
+              options={{ headerShown: false }}
+            />
+            <Stack.Screen name="+not-found" />
+          </Stack>
+        </AppLockGate>
       </CustomThemeProvider>
 
       <StatusBar style="auto" />
@@ -153,11 +170,8 @@ function AppNavigator() {
   );
 }
 
-
 /* ------------------ ROOT LAYOUT ------------------ */
 export default function RootLayout() {
-
-
   const [loaded] = useFonts({
     SpaceMono: require("../assets/fonts/SpaceMono-Regular.ttf"),
   });
